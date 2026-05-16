@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0b0b0e;
+  --surface: #141418;
+  --surface2: #1c1c22;
+  --surface3: #242429;
+  --green: #00e676;
+  --green-dim: rgba(0, 230, 118, 0.12);
+  --orange: #ff6d00;
+  --orange-dim: rgba(255, 109, 0, 0.12);
+  --blue: #448aff;
+  --blue-dim: rgba(68, 138, 255, 0.12);
+  --text: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.55);
+  --text-3: rgba(255, 255, 255, 0.30);
+  --border: rgba(255, 255, 255, 0.07);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-barlow), sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(0, 230, 118, 0); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.4s ease forwards;
+}
+
+.pulse-green {
+  animation: pulse-green 2.5s infinite;
+}
