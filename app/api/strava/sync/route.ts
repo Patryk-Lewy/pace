@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getValidAccessToken, fetchRecentActivities, speedToSecPerKm } from '@/lib/strava'
 import Anthropic from '@anthropic-ai/sdk'
 
+export const maxDuration = 60
+
 const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST() {

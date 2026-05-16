@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { PlanJson, PlanWorkout } from '@/types/database'
 
+export const maxDuration = 60 // Vercel: max 60s na Hobby, potrzebne dla Claude
+
 function getAnthropic() {
   const key = process.env.ANTHROPIC_API_KEY
   console.log('[generate-plan] ANTHROPIC_API_KEY present:', !!key, 'length:', key?.length)

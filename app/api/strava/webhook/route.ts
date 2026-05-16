@@ -4,6 +4,8 @@ import { getValidAccessToken, speedToSecPerKm } from '@/lib/strava'
 import { analyzeAndAdapt } from '@/lib/plan-adaptation'
 import Anthropic from '@anthropic-ai/sdk'
 
+export const maxDuration = 60
+
 const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 // GET — Strava webhook verification
