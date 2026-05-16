@@ -164,7 +164,7 @@ export async function POST(request: Request) {
 
     // Call Claude (Haiku — szybszy, mieści się w 60s limicie Vercel Hobby)
     const message = await getAnthropic().messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5',
       max_tokens: 8192,
       messages: [{ role: 'user', content: buildPrompt(safeProfile) }],
     })
