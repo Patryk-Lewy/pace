@@ -13,10 +13,10 @@ function getAnthropic() {
 }
 
 const DISTANCE_WEEKS: Record<string, number> = {
-  '5km': 8,
-  '10km': 10,
-  'half': 12,
-  'marathon': 16,
+  '5km': 6,
+  '10km': 8,
+  'half': 8,
+  'marathon': 8,
 }
 
 const DISTANCE_LABELS: Record<string, string> = {
@@ -162,10 +162,10 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .eq('status', 'active')
 
-    // Call Claude
+    // Call Claude (Haiku — szybszy, mieści się w 60s limicie Vercel Hobby)
     const message = await getAnthropic().messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 16000,
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 8192,
       messages: [{ role: 'user', content: buildPrompt(safeProfile) }],
     })
 
