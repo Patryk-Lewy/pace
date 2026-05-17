@@ -81,12 +81,14 @@ export default async function DashboardPage({
         />
       )}
 
-      {/* Profile stats */}
+      {/* Profile stats — compact horizontal strip */}
       {profile && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
-          <StatCard label="Cel" value={distanceLabels[profile.race_distance ?? ''] ?? '—'} />
-          <StatCard label="Km / tydzień" value={profile.weekly_km ? `${profile.weekly_km} km` : '—'} />
-          <StatCard label="Tempo na 5 km" value={profile.best_5k_pace ? `${profile.best_5k_pace} /km` : '—'} />
+        <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="grid grid-cols-3">
+            <StatItem label="Cel" value={distanceLabels[profile.race_distance ?? ''] ?? '—'} />
+            <StatItem label="Km / tydz." value={profile.weekly_km ? `${profile.weekly_km} km` : '—'} />
+            <StatItem label="Tempo 5 km" value={profile.best_5k_pace ?? '—'} />
+          </div>
         </div>
       )}
 
@@ -129,7 +131,7 @@ export default async function DashboardPage({
                     </p>
                     <div className="flex gap-3 mt-1 text-xs" style={{ color: 'var(--text-3)' }}>
                       {nextWorkout.distance_km && <span>{nextWorkout.distance_km} km</span>}
-                      {nextWorkout.target_pace && <span>@ {nextWorkout.target_pace}/km</span>}
+                      {nextWorkout.target_pace && <span>@ {nextWorkout.target_pace.match(/^\d+:\d{2}/)?.[0] ?? nextWorkout.target_pace}/km</span>}
                       {nextWorkout.duration_minutes && <span>~{nextWorkout.duration_minutes} min</span>}
                     </div>
                   </div>
@@ -214,11 +216,11 @@ export default async function DashboardPage({
   )
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>{label}</p>
-      <p className="text-3xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
+    <div className="p-4 text-center border-r last:border-r-0" style={{ borderColor: 'var(--border)' }}>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-1 truncate" style={{ color: 'var(--text-3)' }}>{label}</p>
+      <p className="text-xl font-black leading-tight" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
         {value}
       </p>
     </div>

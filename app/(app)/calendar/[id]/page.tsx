@@ -140,7 +140,7 @@ export default function WorkoutDetailPage() {
               <MetricBlock label="Dystans" value={`${workout.distance_km}`} unit="km" color={meta.color} />
             )}
             {workout.target_pace && (
-              <MetricBlock label="Tempo" value={workout.target_pace} unit="/km" color={meta.color} />
+              <MetricBlock label="Tempo" value={cleanPace(workout.target_pace)} unit="/km" color={meta.color} />
             )}
             {workout.duration_minutes && (
               <MetricBlock label="Czas" value={`${workout.duration_minutes}`} unit="min" color={meta.color} />
@@ -248,11 +248,16 @@ export default function WorkoutDetailPage() {
   )
 }
 
+/** Extract only MM:SS from pace strings that may contain extra description text */
+function cleanPace(raw: string): string {
+  return raw.match(/^\d+:\d{2}/)?.[0] ?? raw
+}
+
 function MetricBlock({ label, value, unit, color }: { label: string; value: string; unit: string; color: string }) {
   return (
     <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
       <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>{label}</p>
-      <p className="text-2xl font-black leading-none" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color }}>
+      <p className="text-2xl font-black leading-none truncate" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color }}>
         {value}
       </p>
       <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{unit}</p>
