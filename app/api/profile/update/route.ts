@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const PACE_RE = /^\d+:[0-5]\d$/  // M:SS or MM:SS
+const PACE_RE = /^\d+:[0-5]\d$/           // M:SS or MM:SS
+const TIME_RE = /^\d+:[0-5]\d:[0-5]\d$|^\d+:[0-5]\d$/  // H:MM:SS or MM:SS
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient()
@@ -17,6 +18,9 @@ export async function PATCH(request: NextRequest) {
   if (body.weekly_km !== undefined && (isNaN(body.weekly_km) || body.weekly_km < 0)) {
     return NextResponse.json({ error: 'Km/tydzień musi być liczbą dodatnią' }, { status: 400 })
   }
+  if (body.race_goal_time && !TIME_RE.test(body.race_goal_time.trim())) {
+    return NextResponse.json({ error: 'Cel czasowy musi być w formacie H:MM:SS (np. 3:30:00)' }, { status: 400 })
+  }
   if (body.race_date) {
     const d = new Date(body.race_date)
     if (isNaN(d.getTime())) {
@@ -25,8 +29,8 @@ export async function PATCH(request: NextRequest) {
   }
 
   const update = {
-    race_goal:            body.race_goal            ?? null,
-    race_distance:        body.race_distance         ?? null,
+    race_goal_time:       body.race_goal_time?.trim()  ?? null,
+    race_distance:        body.race_distance            ?? null,
     race_date:            body.race_date             ?? null,
     weekly_km:            body.weekly_km != null ? Number(body.weekly_km) : null,
     best_5k_pace:         body.best_5k_pace?.trim()  ?? null,

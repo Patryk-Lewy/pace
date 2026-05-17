@@ -29,7 +29,7 @@ const DISTANCE_LABELS: Record<string, string> = {
 function buildPrompt(profile: {
   race_distance: string
   race_date: string | null
-  race_goal: string | null
+  race_goal_time: string | null
   weekly_km: number | null
   best_5k_pace: string | null
   pb_5k: string | null
@@ -47,9 +47,9 @@ function buildPrompt(profile: {
 
   // Build personal bests section
   const pbs = [
-    profile.pb_5k      && `5 km: ${profile.pb_5k}`,
-    profile.pb_10k     && `10 km: ${profile.pb_10k}`,
-    profile.pb_half    && `Półmaraton: ${profile.pb_half}`,
+    profile.pb_5k       && `5 km: ${profile.pb_5k}`,
+    profile.pb_10k      && `10 km: ${profile.pb_10k}`,
+    profile.pb_half     && `Półmaraton: ${profile.pb_half}`,
     profile.pb_marathon && `Maraton: ${profile.pb_marathon}`,
   ].filter(Boolean)
 
@@ -59,23 +59,37 @@ function buildPrompt(profile: {
       ? `Tempo na 5 km: ${profile.best_5k_pace} min/km (brak rekordów czasowych)`
       : 'nie podano — przyjmij poziom początkujący'
 
+  const goalTimeSection = profile.race_goal_time
+    ? `**CEL CZASOWY: ${profile.race_goal_time}** na ${distanceLabel}
+
+## Jak użyć celu czasowego
+1. Oblicz docelowe tempo wyścigu z celu czasowego (czas ÷ dystans w km).
+2. Porównaj z obecną formą z rekordów życiowych (metoda VDOT).
+3. Jeśli cel jest ambitny (szybszy niż wynikałoby z PB) — buduj plan progresywnie:
+   pierwsze tygodnie (Baza) bazują na OBECNEJ formie, a kolejne fazy stopniowo
+   przesuwają tempa w kierunku celu.
+4. Jeśli cel jest realistyczny lub zachowawczy — trenuj bezpośrednio pod cel.
+5. Zawsze podaj w opisie treningu konkretne tempo (min:sek/km) powiązane z celem.`
+    : `## Jak używać rekordów życiowych
+Na podstawie rekordów życiowych oblicz strefy treningowe metodą VDOT (Jack Daniels):
+- Easy/Long run: ~70–75% VO2max tempo (ok. 60–90s wolniej niż tempo maratońskie)
+- Tempo run: ~85–88% VO2max (tempo półmaratońskie lub wolniej)
+- Interwały: ~95–100% VO2max (tempo 5 km lub szybciej)`
+
   return `Jesteś doświadczonym trenerem biegowym. Wygeneruj spersonalizowany plan treningowy w formacie JSON.
 
 ## Profil biegacza
-- Cel startowy: ${distanceLabel}${profile.race_goal ? ` — "${profile.race_goal}"` : ''}
+- Dystans docelowy: ${distanceLabel}
 - Data zawodów: ${profile.race_date ?? 'nie podano'}
-- Rekordy życiowe (użyj do obliczenia stref i temp treningowych): ${pbSection}
+- Rekordy życiowe (obecna forma): ${pbSection}
 - Obecny kilometraż tygodniowy: ${profile.weekly_km ?? 'nie podano'} km/tydzień
 - Dostępne dni: ${days}
 - Max czas sesji: ${profile.max_session_minutes ?? 60} minut
 - Historia kontuzji: ${profile.injury_history ?? 'brak'}
 - Cel dodatkowy: ${profile.additional_goal ?? 'brak'}
 
-## Jak używać rekordów życiowych
-Na podstawie rekordów życiowych oblicz strefy treningowe metodą VDOT (Jack Daniels):
-- Easy/Long run: ~70–75% VO2max tempo (ok. 60–90s wolniej niż tempo maratońskie)
-- Tempo run: ~85–88% VO2max (tempo półmaratońskie lub wolniej)
-- Interwały: ~95–100% VO2max (tempo 5 km lub szybciej)
+${goalTimeSection}
+
 Podaj konkretne tempa (min:sek/km) dopasowane do poziomu biegacza.
 
 ## Wymagania planu
@@ -142,7 +156,7 @@ export async function POST(request: Request) {
     const safeProfile = {
       race_distance:    profile.race_distance as string,
       race_date:        profile.race_date,
-      race_goal:        profile.race_goal,
+      race_goal_time:   profile.race_goal_time ?? null,
       weekly_km:        profile.weekly_km,
       best_5k_pace:     profile.best_5k_pace,
       pb_5k:            profile.pb_5k,

@@ -39,7 +39,7 @@ const TIME_RE = /^\d+:[0-5]\d:[0-5]\d$|^\d+:[0-5]\d$/   // H:MM:SS or MM:SS
 type FormData = {
   race_distance: string
   race_date: string
-  race_goal: string
+  race_goal_time: string
   pb_5k: string
   pb_10k: string
   pb_half: string
@@ -54,7 +54,7 @@ type FormData = {
 const INITIAL: FormData = {
   race_distance: '',
   race_date: '',
-  race_goal: '',
+  race_goal_time: '',
   pb_5k: '',
   pb_10k: '',
   pb_half: '',
@@ -134,7 +134,7 @@ export default function OnboardingPage() {
       .update({
         race_distance:       form.race_distance,
         race_date:           form.race_date || null,
-        race_goal:           form.race_goal || null,
+        race_goal_time:      form.race_goal_time.trim() || null,
         pb_5k:               form.pb_5k.trim() || null,
         pb_10k:              form.pb_10k.trim() || null,
         pb_half:             form.pb_half.trim() || null,
@@ -365,13 +365,24 @@ export default function OnboardingPage() {
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-widest mb-2"
                   style={{ color: 'var(--text-3)' }}>
-                  Co chcesz osiągnąć? (opcjonalnie)
+                  Cel czasowy (opcjonalnie)
                 </label>
-                <input type="text" value={form.race_goal}
-                  onChange={e => set('race_goal', e.target.value)}
-                  placeholder="np. Ukończyć maraton, Pobiec sub-4h, Schudnąć i poprawić kondycję..."
-                  className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+                <div className="relative">
+                  <input type="text" value={form.race_goal_time}
+                    onChange={e => set('race_goal_time', e.target.value)}
+                    placeholder="np. 3:30:00"
+                    className="w-full rounded-xl px-4 py-3 text-sm outline-none pr-20"
+                    style={{
+                      background: 'var(--surface)',
+                      border: `1px solid ${form.race_goal_time && TIME_RE.test(form.race_goal_time.trim()) ? 'var(--green)' : 'var(--border)'}`,
+                      color: 'var(--text)',
+                    }} />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs"
+                    style={{ color: 'var(--text-3)' }}>H:MM:SS</span>
+                </div>
+                <p className="mt-1.5 text-xs" style={{ color: 'var(--text-3)' }}>
+                  Claude dobierze tempa treningowe pod ten wynik
+                </p>
               </div>
 
               <div>
@@ -533,7 +544,7 @@ export default function OnboardingPage() {
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <SummaryRow label="Dystans"
                 value={DISTANCES.find(d => d.id === form.race_distance)?.label ?? '—'} />
-              {form.race_goal && <SummaryRow label="Cel" value={form.race_goal} />}
+              {form.race_goal_time && <SummaryRow label="Cel czasowy" value={form.race_goal_time} />}
               {form.race_date && <SummaryRow label="Data zawodów" value={form.race_date} />}
               {form.pb_5k     && <SummaryRow label="Rekord 5 km"       value={form.pb_5k} />}
               {form.pb_10k    && <SummaryRow label="Rekord 10 km"      value={form.pb_10k} />}

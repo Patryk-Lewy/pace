@@ -74,7 +74,7 @@ export default function SettingsPage() {
 
   // Form state
   const [form, setForm] = useState({
-    race_goal: '', race_distance: '', race_date: '',
+    race_goal_time: '', race_distance: '', race_date: '',
     weekly_km: '',
     pb_5k: '', pb_10k: '', pb_half: '', pb_marathon: '',
     available_days: [] as string[],
@@ -94,7 +94,7 @@ export default function SettingsPage() {
       if (prof) {
         setProfile(prof)
         setForm({
-          race_goal:           prof.race_goal            ?? '',
+          race_goal_time:      prof.race_goal_time        ?? '',
           race_distance:       prof.race_distance         ?? '',
           race_date:           prof.race_date             ?? '',
           weekly_km:           prof.weekly_km?.toString() ?? '',
@@ -134,6 +134,7 @@ export default function SettingsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
+        race_goal_time: form.race_goal_time.trim() || null,
         weekly_km: form.weekly_km ? Number(form.weekly_km) : null,
         max_session_minutes: form.max_session_minutes,
       }),
@@ -186,13 +187,20 @@ export default function SettingsPage() {
         {/* ── 1. Profil biegacza ── */}
         <Section title="Profil biegacza">
 
-          <Field label="Cel treningowy">
-            <input
-              value={form.race_goal}
-              onChange={e => set('race_goal', e.target.value)}
-              placeholder="np. Ukończyć maraton poniżej 4 godzin"
-              style={inputStyle}
-            />
+          <Field label="Cel czasowy (opcjonalnie)">
+            <div className="relative">
+              <input
+                value={form.race_goal_time}
+                onChange={e => set('race_goal_time', e.target.value)}
+                placeholder="np. 3:30:00"
+                style={{ ...inputStyle, paddingRight: 72 }}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
+                style={{ color: 'var(--text-3)' }}>H:MM:SS</span>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              Claude dobierze tempa treningowe pod ten wynik
+            </p>
           </Field>
 
           <Field label="Dystans docelowy">

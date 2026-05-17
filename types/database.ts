@@ -200,6 +200,7 @@ export type Database = {
           race_date: string | null
           race_distance: string | null
           race_goal: string | null
+          race_goal_time: string | null
           updated_at: string
           weekly_km: number | null
         }
@@ -220,6 +221,7 @@ export type Database = {
           race_date?: string | null
           race_distance?: string | null
           race_goal?: string | null
+          race_goal_time?: string | null
           updated_at?: string
           weekly_km?: number | null
         }
@@ -240,6 +242,7 @@ export type Database = {
           race_date?: string | null
           race_distance?: string | null
           race_goal?: string | null
+          race_goal_time?: string | null
           updated_at?: string
           weekly_km?: number | null
         }
