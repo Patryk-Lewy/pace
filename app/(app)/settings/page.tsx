@@ -152,7 +152,9 @@ export default function SettingsPage() {
 
   async function disconnectStrava() {
     const supabase = createClient()
-    await supabase.from('strava_tokens').delete().neq('user_id', '')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('strava_tokens').delete().eq('user_id', user.id)
     setStravaConnected(false)
   }
 

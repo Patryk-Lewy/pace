@@ -177,6 +177,9 @@ export default function OnboardingPage() {
       return
     }
 
+    // Mark last step complete before transitioning
+    setGenStep(genMessages.length)
+    await delay(400)
     setGenerating(false)
     setDone(true)
   }

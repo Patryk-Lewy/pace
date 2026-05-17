@@ -111,7 +111,7 @@ export default async function DashboardPage({
           <div className="grid grid-cols-3">
             <StatItem label="Cel" value={distanceLabels[profile.race_distance ?? ''] ?? '—'} />
             <StatItem label="Km / tydz." value={profile.weekly_km ? `${profile.weekly_km} km` : '—'} />
-            <StatItem label="Tempo 5 km" value={profile.best_5k_pace ?? '—'} />
+            <StatItem label="Rekord 5 km" value={profile.pb_5k ?? profile.best_5k_pace ?? '—'} />
           </div>
         </div>
       )}
