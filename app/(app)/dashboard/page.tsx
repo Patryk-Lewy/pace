@@ -73,6 +73,30 @@ export default async function DashboardPage({
 
       <TodayBanner />
 
+      {/* Race day banner — visible when race is ≤14 days away */}
+      {profile?.race_date && profile?.race_goal_time && (() => {
+        const daysLeft = Math.ceil(
+          (new Date(profile.race_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+        )
+        if (daysLeft > 14 || daysLeft < 0) return null
+        return (
+          <Link href="/race" className="block mb-4">
+            <div className="rounded-2xl px-5 py-4 flex items-center justify-between transition-all hover:scale-[1.01]"
+              style={{ background: 'var(--green-dim)', border: '1px solid var(--green)' }}>
+              <div>
+                <p className="text-sm font-black" style={{ color: 'var(--green)' }}>
+                  🏁 Zawody za {daysLeft === 0 ? 'dziś!' : `${daysLeft} ${daysLeft === 1 ? 'dzień' : 'dni'}`}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-2)' }}>
+                  Sprawdź strategię startową — plan tempa co 5 km
+                </p>
+              </div>
+              <span className="text-lg" style={{ color: 'var(--green)' }}>→</span>
+            </div>
+          </Link>
+        )
+      })()}
+
       {/* AI plan adaptation suggestion */}
       {pendingAdaptation && (
         <AdaptationBanner

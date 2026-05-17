@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 
 const NAV = [
   { href: '/dashboard', icon: '◈', label: 'Dashboard' },
-  { href: '/plan', icon: '▤', label: 'Plan' },
-  { href: '/calendar', icon: '▦', label: 'Kalendarz' },
-  { href: '/stats', icon: '▲', label: 'Statystyki' },
-  { href: '/settings', icon: '⚙', label: 'Ustawienia' },
+  { href: '/plan',      icon: '▤', label: 'Plan' },
+  { href: '/calendar',  icon: '▦', label: 'Kalendarz' },
+  { href: '/race',      icon: '🏁', label: 'Strategia startowa' },
+  { href: '/stats',     icon: '▲', label: 'Statystyki' },
+  { href: '/settings',  icon: '⚙', label: 'Ustawienia' },
 ]
 
 export default function Sidebar() {
