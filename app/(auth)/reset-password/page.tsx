@@ -2,23 +2,23 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
-  const router = useRouter()
+export default function ResetPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/update-password`,
+    })
 
     if (error) {
       setError(error.message)
@@ -26,8 +26,36 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    setSent(true)
+    setLoading(false)
+  }
+
+  if (sent) {
+    return (
+      <div
+        className="rounded-2xl p-8 border text-center"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
+        <div className="text-4xl mb-4">📬</div>
+        <h1
+          className="text-2xl font-bold mb-2"
+          style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}
+        >
+          Sprawdź skrzynkę
+        </h1>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-2)' }}>
+          Wysłaliśmy link do resetu hasła na <strong style={{ color: 'var(--text)' }}>{email}</strong>.
+          Link jest ważny przez 24 godziny.
+        </p>
+        <Link
+          href="/login"
+          className="text-sm font-semibold"
+          style={{ color: 'var(--green)' }}
+        >
+          ← Wróć do logowania
+        </Link>
+      </div>
+    )
   }
 
   return (
@@ -39,15 +67,18 @@ export default function LoginPage() {
         className="text-2xl font-bold mb-1"
         style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}
       >
-        Zaloguj się
+        Reset hasła
       </h1>
       <p className="text-sm mb-8" style={{ color: 'var(--text-2)' }}>
-        Witaj z powrotem, biegaczu.
+        Podaj adres email — wyślemy Ci link do ustawienia nowego hasła.
       </p>
 
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
+          <label
+            className="block text-xs font-semibold uppercase tracking-widest mb-2"
+            style={{ color: 'var(--text-3)' }}
+          >
             Email
           </label>
           <input
@@ -56,30 +87,6 @@ export default function LoginPage() {
             onChange={e => setEmail(e.target.value)}
             required
             placeholder="jan@example.com"
-            className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
-            style={{
-              background: 'var(--surface2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-            }}
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-              Hasło
-            </label>
-            <Link href="/reset-password" className="text-xs" style={{ color: 'var(--green)' }}>
-              Zapomniałem hasła
-            </Link>
-          </div>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            placeholder="••••••••"
             className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
             style={{
               background: 'var(--surface2)',
@@ -106,14 +113,13 @@ export default function LoginPage() {
             cursor: loading ? 'not-allowed' : 'pointer',
           }}
         >
-          {loading ? 'Logowanie...' : 'Zaloguj się'}
+          {loading ? 'Wysyłanie...' : 'Wyślij link resetujący'}
         </button>
       </form>
 
       <p className="text-center text-sm mt-6" style={{ color: 'var(--text-3)' }}>
-        Nie masz konta?{' '}
-        <Link href="/register" className="font-semibold" style={{ color: 'var(--green)' }}>
-          Zarejestruj się
+        <Link href="/login" className="font-semibold" style={{ color: 'var(--green)' }}>
+          ← Wróć do logowania
         </Link>
       </p>
     </div>

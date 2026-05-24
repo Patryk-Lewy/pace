@@ -1,24 +1,32 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+export default function UpdatePasswordPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (password !== confirm) {
+      setError('Hasła nie są identyczne.')
+      return
+    }
+    if (password.length < 6) {
+      setError('Hasło musi mieć co najmniej 6 znaków.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
       setError(error.message)
@@ -27,7 +35,6 @@ export default function LoginPage() {
     }
 
     router.push('/dashboard')
-    router.refresh()
   }
 
   return (
@@ -39,23 +46,27 @@ export default function LoginPage() {
         className="text-2xl font-bold mb-1"
         style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}
       >
-        Zaloguj się
+        Nowe hasło
       </h1>
       <p className="text-sm mb-8" style={{ color: 'var(--text-2)' }}>
-        Witaj z powrotem, biegaczu.
+        Ustaw nowe hasło do swojego konta PACE.
       </p>
 
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
-            Email
+          <label
+            className="block text-xs font-semibold uppercase tracking-widest mb-2"
+            style={{ color: 'var(--text-3)' }}
+          >
+            Nowe hasło
           </label>
           <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
             required
-            placeholder="jan@example.com"
+            minLength={6}
+            placeholder="minimum 6 znaków"
             className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
             style={{
               background: 'var(--surface2)',
@@ -66,18 +77,16 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-              Hasło
-            </label>
-            <Link href="/reset-password" className="text-xs" style={{ color: 'var(--green)' }}>
-              Zapomniałem hasła
-            </Link>
-          </div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-widest mb-2"
+            style={{ color: 'var(--text-3)' }}
+          >
+            Powtórz hasło
+          </label>
           <input
             type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
             required
             placeholder="••••••••"
             className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
@@ -85,6 +94,7 @@ export default function LoginPage() {
               background: 'var(--surface2)',
               border: '1px solid var(--border)',
               color: 'var(--text)',
+              borderColor: confirm && confirm !== password ? 'var(--orange)' : 'var(--border)',
             }}
           />
         </div>
@@ -106,16 +116,9 @@ export default function LoginPage() {
             cursor: loading ? 'not-allowed' : 'pointer',
           }}
         >
-          {loading ? 'Logowanie...' : 'Zaloguj się'}
+          {loading ? 'Zapisywanie...' : 'Ustaw nowe hasło'}
         </button>
       </form>
-
-      <p className="text-center text-sm mt-6" style={{ color: 'var(--text-3)' }}>
-        Nie masz konta?{' '}
-        <Link href="/register" className="font-semibold" style={{ color: 'var(--green)' }}>
-          Zarejestruj się
-        </Link>
-      </p>
     </div>
   )
 }
