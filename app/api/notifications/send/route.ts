@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import webpush from 'web-push'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { PushSubscriptionRow } from '@/types/database'
 
 webpush.setVapidDetails(
@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const supabase = await createClient()
+  // Service client required — cron has no user session, anon key blocked by RLS
+  const supabase = createServiceClient()
   const today = DAY_MAP[new Date().getDay()]
 
   const { data: workouts } = await supabase

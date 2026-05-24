@@ -18,12 +18,26 @@ const barlowCondensed = Barlow_Condensed({
 
 export const metadata: Metadata = {
   title: 'PACE — AI Running Coach',
-  description: 'Spersonalizowany AI trener biegowy',
+  description: 'Spersonalizowany AI trener biegowy oparty na Claude',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'PACE',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'msapplication-TileColor': '#00e676',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pl" className={`${barlow.variable} ${barlowCondensed.variable} h-full`}>
+      <head>
+        <meta name="theme-color" content="#00e676" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body className="min-h-full flex flex-col antialiased">{children}</body>
     </html>
   )

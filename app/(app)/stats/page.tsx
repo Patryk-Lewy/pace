@@ -136,7 +136,10 @@ export default function StatsPage() {
               value={activities[0] ? new Date(activities[0].start_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—'}
               unit="" />
             <BigStat label="Śr. tempo"
-              value={activities[0]?.avg_pace_s_per_km ? formatPace(activities[0].avg_pace_s_per_km) : '—'}
+              value={(() => {
+                const paces = activities.filter(a => a.avg_pace_s_per_km).map(a => a.avg_pace_s_per_km!)
+                return paces.length ? formatPace(Math.round(paces.reduce((s, p) => s + p, 0) / paces.length)) : '—'
+              })()}
               unit="/km" />
           </div>
 
