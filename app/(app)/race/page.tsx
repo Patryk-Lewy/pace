@@ -99,20 +99,28 @@ export default function RacePage() {
   return (
     <div className="max-w-2xl animate-fade-up">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-5xl font-black mb-1"
-          style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-          Strategia startowa
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-          {DISTANCE_LABELS[race_distance]} · cel {race_goal_time}
-          {daysUntil !== null && daysUntil > 0 && (
-            <span style={{ color: 'var(--green)' }}> · za {daysUntil} dni</span>
-          )}
-          {daysUntil !== null && daysUntil <= 0 && (
-            <span style={{ color: 'var(--orange)' }}> · dziś startujesz! 🏁</span>
-          )}
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-5xl font-black mb-1"
+            style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
+            Strategia startowa
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--text-2)' }}>
+            {DISTANCE_LABELS[race_distance]} · cel {race_goal_time}
+            {daysUntil !== null && daysUntil > 0 && (
+              <span style={{ color: 'var(--green)' }}> · za {daysUntil} dni</span>
+            )}
+            {daysUntil !== null && daysUntil <= 0 && (
+              <span style={{ color: 'var(--orange)' }}> · dziś startujesz! 🏁</span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          className="rounded-xl px-4 py-2 text-sm font-semibold flex items-center gap-2 flex-shrink-0 transition-all hover:opacity-80 print:hidden"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+          🖨️ Drukuj
+        </button>
       </div>
 
       {/* Strategy selector */}

@@ -133,6 +133,11 @@ export default async function RootPage() {
               title: 'Eksport do Garmina',
               desc: 'Każdy trening eksportujesz jako plik .TCX z targetami tempa — i wgrywasz bezpośrednio na zegarek Garmin.',
             },
+            {
+              emoji: '🏁',
+              title: 'Strategia startowa',
+              desc: 'Plan tempa na dzień zawodów — kilometr po kilometrze. Wybierz strategię even split, negative split lub progresywną i wyjdź na start z konkretnym planem.',
+            },
           ].map(f => (
             <div
               key={f.title}

@@ -102,6 +102,15 @@ export default function CalendarPage() {
 
   useEffect(() => { loadData() }, [])
 
+  // Auto-jump to current week after plan loads
+  useEffect(() => {
+    if (!plan) return
+    const planStart = getMondayOf(new Date(plan.created_at))
+    const diffMs = new Date().getTime() - planStart.getTime()
+    const diffWeeks = Math.floor(diffMs / (7 * 24 * 3600 * 1000)) + 1
+    setCurrentWeek(Math.max(1, Math.min(plan.total_weeks, diffWeeks)))
+  }, [plan])
+
   async function loadData() {
     setLoading(true)
     const supabase = createClient()

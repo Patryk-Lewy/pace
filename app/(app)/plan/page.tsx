@@ -19,10 +19,12 @@ const PHASE_COLORS: Record<string, string> = {
 export default function PlanPage() {
   const router = useRouter()
   const [plan, setPlan] = useState<TrainingPlan | null>(null)
+  const [archivedPlans, setArchivedPlans] = useState<TrainingPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState('')
+  const [showArchive, setShowArchive] = useState(false)
 
   useEffect(() => {
     loadPlan()
@@ -31,14 +33,14 @@ export default function PlanPage() {
   async function loadPlan() {
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
-      .from('training_plans')
-      .select('*')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    setPlan(data)
+    const [{ data: active }, { data: archived }] = await Promise.all([
+      supabase.from('training_plans').select('*').eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('training_plans').select('*').eq('status', 'archived')
+        .order('created_at', { ascending: false }).limit(10),
+    ])
+    setPlan(active)
+    setArchivedPlans(archived ?? [])
     setLoading(false)
   }
 
@@ -143,6 +145,40 @@ export default function PlanPage() {
       {/* Plan exists */}
       {plan && !generating && (
         <PlanView plan={plan} onRegenerate={generatePlan} onCalendar={() => router.push('/calendar')} />
+      )}
+
+      {/* Archived plans */}
+      {archivedPlans.length > 0 && !generating && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowArchive(v => !v)}
+            className="flex items-center gap-2 text-sm mb-3 transition-all hover:opacity-70"
+            style={{ color: 'var(--text-3)' }}>
+            {showArchive ? '▲' : '▼'} Archiwum planów ({archivedPlans.length})
+          </button>
+
+          {showArchive && (
+            <div className="space-y-2">
+              {archivedPlans.map(p => (
+                <div key={p.id} className="rounded-2xl px-5 py-4 flex items-center justify-between"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', opacity: 0.7 }}>
+                  <div>
+                    <p className="text-sm font-bold">{p.plan_name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                      {DISTANCE_LABELS[p.race_distance] ?? p.race_distance} · {p.total_weeks} tygodni
+                      {p.race_date && ` · ${p.race_date}`}
+                      {' · '}wygenerowany {new Date(p.created_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full"
+                    style={{ background: 'var(--surface2)', color: 'var(--text-3)' }}>
+                    Archiwalny
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

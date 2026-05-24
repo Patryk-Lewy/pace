@@ -47,7 +47,7 @@ export default function StatsPage() {
     const supabase = createClient()
     const [{ data: tok }, { data: acts }] = await Promise.all([
       supabase.from('strava_tokens').select('*').maybeSingle(),
-      supabase.from('activities').select('*').order('start_date', { ascending: false }).limit(50),
+      supabase.from('activities').select('*').order('start_date', { ascending: false }).limit(500),
     ])
     setToken(tok)
     setActivities(acts ?? [])
