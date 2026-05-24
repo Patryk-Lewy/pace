@@ -21,7 +21,7 @@ const TYPE_COLOR: Record<string, { bg: string; text: string; label: string }> = 
   easy_run:  { bg: 'var(--blue-dim)',   text: 'var(--blue)',   label: 'Easy' },
   long_run:  { bg: 'var(--blue-dim)',   text: 'var(--blue)',   label: 'Long' },
   tempo:     { bg: 'var(--orange-dim)', text: 'var(--orange)', label: 'Tempo' },
-  intervals: { bg: 'var(--orange-dim)', text: 'var(--orange)', label: 'Interway' },
+  intervals: { bg: 'var(--orange-dim)', text: 'var(--orange)', label: 'Interwały' },
   rest:      { bg: 'var(--surface3)',   text: 'var(--text-3)', label: 'Rest' },
 }
 
@@ -336,7 +336,7 @@ function WeekView({
 
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {w.distance_km && <span className="text-xs font-bold" style={{ color: style.text }}>{w.distance_km} km</span>}
-                {w.target_pace && <span className="text-xs" style={{ color: 'var(--text-3)' }}>@ {w.target_pace}/km</span>}
+                {w.target_pace && <span className="text-xs" style={{ color: 'var(--text-3)' }}>@ {w.target_pace.match(/^\d+:\d{2}/)?.[0] ?? w.target_pace}/km</span>}
                 {w.duration_minutes && <span className="text-xs" style={{ color: 'var(--text-3)' }}>~{w.duration_minutes} min</span>}
               </div>
 
@@ -490,7 +490,7 @@ function MonthView({
       <div className="flex flex-wrap gap-3 mt-4">
         {[
           { label: 'Easy / Long', bg: 'var(--blue-dim)', text: 'var(--blue)' },
-          { label: 'Tempo / Interway', bg: 'var(--orange-dim)', text: 'var(--orange)' },
+          { label: 'Tempo / Interwały', bg: 'var(--orange-dim)', text: 'var(--orange)' },
           { label: 'Ukończony', bg: 'var(--green-dim)', text: 'var(--green)' },
           { label: 'Rest', bg: 'var(--surface3)', text: 'var(--text-3)' },
         ].map(l => (
