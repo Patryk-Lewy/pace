@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getValidAccessToken, speedToSecPerKm } from '@/lib/strava'
 import { analyzeAndAdapt } from '@/lib/plan-adaptation'
 import Anthropic from '@anthropic-ai/sdk'
@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
   const stravaActivityId = event.object_id
 
   try {
-    const supabase = await createClient()
+    // Service client bypasses RLS — required because this request
+    // comes from Strava's servers (no user session / cookies)
+    const supabase = createServiceClient()
 
     // Find user by strava athlete id
     const { data: tokenRow } = await supabase
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     if (!savedActivity) return NextResponse.json({ ok: true })
 
-    // Match with planned workout (closest unfinished run same week)
+    // Match with planned workout (next unfinished run in the plan)
     const { data: matchedWorkout } = await supabase
       .from('workouts')
       .select('*')
@@ -91,12 +93,20 @@ export async function POST(request: NextRequest) {
       .eq('status', 'planned')
       .neq('workout_type', 'rest')
       .order('week_number')
+      .order('day_of_week')
       .limit(1)
       .maybeSingle()
 
     if (matchedWorkout) {
-      await supabase.from('workouts').update({ status: 'completed', completed_at: act.start_date }).eq('id', matchedWorkout.id)
-      await supabase.from('activities').update({ matched_workout_id: matchedWorkout.id }).eq('id', savedActivity.id)
+      await supabase
+        .from('workouts')
+        .update({ status: 'completed', completed_at: act.start_date })
+        .eq('id', matchedWorkout.id)
+
+      await supabase
+        .from('activities')
+        .update({ matched_workout_id: matchedWorkout.id })
+        .eq('id', savedActivity.id)
 
       // Claude analysis
       const distKm = (act.distance / 1000).toFixed(2)
@@ -120,18 +130,19 @@ Bądź konkretny, motywujący i merytoryczny.`,
 
       const comment = msg.content[0].type === 'text' ? msg.content[0].text : ''
 
-      await supabase.from('activities').update({
-        ai_comment: comment,
-        ai_analyzed_at: new Date().toISOString(),
-      }).eq('id', savedActivity.id)
+      await supabase
+        .from('activities')
+        .update({ ai_comment: comment, ai_analyzed_at: new Date().toISOString() })
+        .eq('id', savedActivity.id)
 
-      // Trigger plan adaptation analysis (fire-and-forget — doesn't block webhook response)
+      // Trigger plan adaptation (fire-and-forget)
       const { data: activePlan } = await supabase
         .from('training_plans')
         .select('id')
         .eq('user_id', tokenRow.user_id)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       if (activePlan) {
