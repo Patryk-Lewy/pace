@@ -22,20 +22,13 @@ export async function POST() {
     let synced = 0
 
     for (const act of runs) {
-      // Skip if already saved
-      const { data: existing } = await supabase
-        .from('activities')
-        .select('id')
-        .eq('strava_id', act.id)
-        .maybeSingle()
-
-      if (existing) continue
-
       const paceSecPerKm = speedToSecPerKm(act.average_speed)
 
+      // Upsert — safe against race conditions with webhook
+      // ignoreDuplicates: true → skip if already exists (no re-processing)
       const { data: savedActivity } = await supabase
         .from('activities')
-        .insert({
+        .upsert({
           user_id: user.id,
           strava_id: act.id,
           strava_type: act.type,
@@ -48,10 +41,11 @@ export async function POST() {
           avg_heartrate: act.average_heartrate ?? null,
           max_heartrate: act.max_heartrate ?? null,
           total_elevation: act.total_elevation_gain,
-        })
+        }, { onConflict: 'strava_id', ignoreDuplicates: true })
         .select()
         .single()
 
+      // null = activity already existed → skip processing
       if (!savedActivity) continue
       synced++
 
