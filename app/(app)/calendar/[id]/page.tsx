@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { classifyHR, estimateMaxHR } from '@/lib/heart-rate-zones'
+import { PoweredByStrava } from '@/components/PoweredByStrava'
 import type { Workout, Activity } from '@/types/database'
 
 const TYPE_META: Record<string, { color: string; bg: string; emoji: string; zone: string; label: string }> = {
@@ -194,7 +195,7 @@ export default function WorkoutDetailPage() {
               )}
               {matchedActivity.avg_heartrate && <span>♥ {Math.round(matchedActivity.avg_heartrate)} śr.</span>}
               {matchedActivity.max_heartrate && <span>♥↑ {Math.round(matchedActivity.max_heartrate)} max</span>}
-              <span style={{ color: '#FC4C02' }}>● Strava</span>
+              <PoweredByStrava className="ml-auto" />
             </div>
           )}
         </div>

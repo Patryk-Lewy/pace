@@ -4,6 +4,7 @@ import Link from 'next/link'
 import StravaToast from '@/components/StravaToast'
 import TodayBanner from '@/components/TodayBanner'
 import AdaptationBanner from '@/components/AdaptationBanner'
+import { PoweredByStrava } from '@/components/PoweredByStrava'
 import type { AdaptationResult } from '@/lib/plan-adaptation'
 
 export default async function DashboardPage({
@@ -200,28 +201,35 @@ export default async function DashboardPage({
       {/* Strava section */}
       <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         {stravaToken ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {stravaToken.athlete_photo && (
-                <img src={stravaToken.athlete_photo} alt="strava" className="w-10 h-10 rounded-full" />
-              )}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--green)' }}>
-                  ● Strava połączona
-                </p>
-                <p className="text-sm font-bold">{stravaToken.athlete_name}</p>
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {stravaToken.athlete_photo && (
+                  <img src={stravaToken.athlete_photo} alt="strava" className="w-10 h-10 rounded-full" />
+                )}
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--green)' }}>
+                    ● Strava połączona
+                  </p>
+                  <p className="text-sm font-bold">{stravaToken.athlete_name}</p>
+                </div>
               </div>
+              {recentActivity && (
+                <div className="text-right">
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>Ostatni bieg</p>
+                  <p className="text-sm font-semibold">{((recentActivity.distance_m ?? 0) / 1000).toFixed(2)} km</p>
+                </div>
+              )}
+              <Link href="/stats" className="text-sm font-semibold" style={{ color: 'var(--text-2)' }}>
+                Statystyki →
+              </Link>
             </div>
             {recentActivity && (
-              <div className="text-right">
-                <p className="text-xs" style={{ color: 'var(--text-3)' }}>Ostatni bieg</p>
-                <p className="text-sm font-semibold">{((recentActivity.distance_m ?? 0) / 1000).toFixed(2)} km</p>
+              <div className="mt-3 pt-3 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
+                <PoweredByStrava />
               </div>
             )}
-            <Link href="/stats" className="text-sm font-semibold" style={{ color: 'var(--text-2)' }}>
-              Statystyki →
-            </Link>
-          </div>
+          </>
         ) : (
           <div className="flex items-center justify-between">
             <div>

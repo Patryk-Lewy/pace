@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatPace, formatDuration } from '@/lib/strava'
 import { KmBarChart, PaceLineChart } from '@/components/ProgressCharts'
 import { estimateMaxHR, getZoneRanges, buildZoneDistribution, HR_ZONES } from '@/lib/heart-rate-zones'
+import { PoweredByStrava } from '@/components/PoweredByStrava'
 import type { Activity, StravaToken } from '@/types/database'
 
 type WeekGroup = { label: string; activities: Activity[]; totalKm: number; totalTime: number; avgPace: number }
@@ -85,7 +86,9 @@ export default function StatsPage() {
           <h1 className="text-5xl font-black mb-1" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
             Statystyki
           </h1>
-          <p className="text-sm" style={{ color: 'var(--text-2)' }}>Historia biegów ze Strava</p>
+          <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
+            Historia biegów · <PoweredByStrava />
+          </p>
         </div>
 
         {token ? (
