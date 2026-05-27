@@ -242,16 +242,20 @@ export default async function RootPage() {
         className="border-t px-6 py-8"
         style={{ borderColor: 'var(--border)' }}
       >
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="max-w-5xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <span
             className="text-sm font-black tracking-widest uppercase"
             style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}
           >
             PACE
           </span>
-          <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-            AI trener biegowy · Powered by Claude
-          </p>
+          <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-3)' }}>
+            <Link href="/privacy" className="hover:underline" style={{ color: 'var(--text-2)' }}>
+              Polityka prywatności
+            </Link>
+            <span>·</span>
+            <span>AI trener biegowy · Powered by Claude</span>
+          </div>
         </div>
       </footer>
 
