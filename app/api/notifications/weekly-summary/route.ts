@@ -35,23 +35,12 @@ export async function POST(request: NextRequest) {
   const nextWeekISO = new Date(now.getTime() + 7 * 24 * 3600 * 1000).toISOString()
 
   // Fetch all users with active plans
-  const { data: plans, error: plansError } = await supabase
+  const { data: plans } = await supabase
     .from('training_plans')
     .select('user_id')
     .eq('status', 'active')
 
-  if (plansError || !plans?.length) {
-    return NextResponse.json({
-      sent: 0,
-      debug: {
-        plansError: plansError?.message ?? null,
-        plansCount: plans?.length ?? 0,
-        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-        hasResendKey: !!process.env.RESEND_API_KEY,
-        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      },
-    })
-  }
+  if (!plans?.length) return NextResponse.json({ sent: 0 })
 
   const userIds = [...new Set(plans.map(p => p.user_id))]
 
