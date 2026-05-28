@@ -28,9 +28,9 @@ export default async function DashboardPage({
   ] = await Promise.all([
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
-    supabase.from('workouts').select('*').eq('user_id', user.id).eq('status', 'planned').order('week_number').order('day_of_week').maybeSingle(),
+    supabase.from('workouts').select('*').eq('user_id', user.id).eq('status', 'planned').order('week_number').order('day_of_week').limit(1).maybeSingle(),
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
-    supabase.from('activities').select('*').eq('user_id', user.id).order('start_date', { ascending: false }).maybeSingle(),
+    supabase.from('activities').select('*').eq('user_id', user.id).order('start_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
