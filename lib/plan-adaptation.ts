@@ -61,13 +61,20 @@ export async function analyzeAndAdapt(
 
   const { data: workouts } = await supabase
     .from('workouts')
-    .select('id, title, target_pace, workout_type')
+    .select('id, title, target_pace, workout_type, rpe, user_notes')
     .in('id', workoutIds)
 
   const workoutMap = new Map((workouts ?? []).map(w => [w.id, w]))
 
   // 3. Calculate per-activity pace deviation (actual − target, seconds/km)
-  type DeviationEntry = { deviation: number; title: string; targetPace: string; actualPace: string }
+  type DeviationEntry = {
+    deviation: number
+    title: string
+    targetPace: string
+    actualPace: string
+    rpe: number | null
+    notes: string | null
+  }
   const deviations: DeviationEntry[] = []
 
   for (const act of activities) {
@@ -82,6 +89,8 @@ export async function analyzeAndAdapt(
       title: workout.title,
       targetPace: workout.target_pace,
       actualPace: secondsToPace(act.avg_pace_s_per_km),
+      rpe: workout.rpe ?? null,
+      notes: workout.user_notes ?? null,
     })
   }
 
@@ -130,8 +139,20 @@ export async function analyzeAndAdapt(
     const dir = d.deviation < 0
       ? `${Math.abs(d.deviation)}s szybciej niż plan`
       : `${d.deviation}s wolniej niż plan`
-    return `  • ${d.title}: plan ${d.targetPace}/km, wykonane ${d.actualPace}/km (${dir})`
+    const extras: string[] = []
+    if (d.rpe !== null) extras.push(`RPE ${d.rpe}/10`)
+    if (d.notes) extras.push(`notatka biegacza: "${d.notes.slice(0, 200)}"`)
+    const extrasStr = extras.length ? ` [${extras.join(', ')}]` : ''
+    return `  • ${d.title}: plan ${d.targetPace}/km, wykonane ${d.actualPace}/km (${dir})${extrasStr}`
   }).join('\n')
+
+  // Collect any high-RPE or injury-related signal
+  const hasHighRpe = deviations.some(d => d.rpe !== null && d.rpe >= 8)
+  const hasInjurySignal = deviations.some(d => {
+    if (!d.notes) return false
+    const lower = d.notes.toLowerCase()
+    return /bol|ból|kontuz|uraz|kolan|ścięgn|sciegn|sciagn|ściągn|ścięgn|stawy|miesien|mięśni|grypa|przeziebien|przeziębien/.test(lower)
+  })
 
   const remainingStr = (remaining ?? [])
     .map(w => `  • ${w.title}: ${w.distance_km ?? '?'} km @ ${w.target_pace ?? 'brak tempa'}/km`)
@@ -144,20 +165,27 @@ export async function analyzeAndAdapt(
     max_tokens: 300,
     messages: [{
       role: 'user',
-      content: `Jesteś AI trenerem biegowym PACE. Oceń ostatnie treningi i zdecyduj czy plan wymaga korekty tempa.
+      content: `Jesteś AI trenerem biegowym PACE. Oceń ostatnie treningi i zdecyduj czy plan wymaga korekty tempa lub zmniejszenia obciążenia.
 
 Profil biegacza: ${profile?.race_distance ?? '—'} (${profile?.race_goal ?? '—'}), najlepsze 5 km: ${profile?.best_5k_pace ?? '—'}/km
 
 Ostatnie treningi (${allFaster ? 'konsekwentnie szybciej' : 'konsekwentnie wolniej'} niż plan, śr. odchyłka ${Math.round(Math.abs(avgDev))}s/km):
 ${deviationsStr}
 
+${hasInjurySignal ? '⚠️ UWAGA: w notatkach biegacza są sygnały o bólu/kontuzji — priorytetem jest bezpieczeństwo, nie tempo. Zasugeruj lżejszy plan zamiast przyspieszenia.\n' : ''}${hasHighRpe ? '⚠️ UWAGA: biegacz ocenia treningi jako bardzo ciężkie (RPE ≥ 8) — nawet jeśli tempo jest zgodne, plan może być zbyt agresywny.\n' : ''}
 Pozostałe zaplanowane treningi:
 ${remainingStr}
 
 Odpowiedz TYLKO w formacie JSON (bez markdown, bez komentarzy):
 {"action":"adjust_pace","suggestion":"...po polsku 1-2 zdania...","pace_adjustment_seconds":-10}
 Lub: {"action":"none","suggestion":""}
-Wartość pace_adjustment_seconds: ujemna = szybszy plan, dodatnia = wolniejszy.`,
+
+Wartość pace_adjustment_seconds:
+- ujemna (-5 do -20) = szybszy plan (gdy biegacz robi z zapasem)
+- dodatnia (+5 do +30) = wolniejszy plan (gdy biegacz nie nadąża, ma wysokie RPE lub sygnał kontuzji)
+- 0 lub action "none" = bez zmian
+
+W "suggestion" napisz konkretnie dlaczego proponujesz korektę, używając języka biegacza — odwołaj się do RPE lub notatek jeśli były.`,
     }],
   })
 

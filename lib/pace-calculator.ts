@@ -16,6 +16,24 @@ const DISTANCE_KM: Record<string, number> = {
   'marathon': 42.195,
 }
 
+/**
+ * Riegel's formula for race time prediction.
+ * T2 = T1 * (D2/D1)^1.06
+ *
+ * @param sourceTimeSec  Known race time in seconds
+ * @param sourceDistanceKm  Known race distance in km
+ * @param targetDistanceKm  Distance to predict for
+ * @returns predicted time in seconds for target distance
+ */
+export function predictRaceTime(
+  sourceTimeSec: number,
+  sourceDistanceKm: number,
+  targetDistanceKm: number
+): number {
+  if (sourceTimeSec <= 0 || sourceDistanceKm <= 0 || targetDistanceKm <= 0) return 0
+  return sourceTimeSec * Math.pow(targetDistanceKm / sourceDistanceKm, 1.06)
+}
+
 // Parse "H:MM:SS" or "MM:SS" to total seconds
 export function parseTimeToSeconds(time: string): number {
   const parts = time.split(':').map(Number)

@@ -86,6 +86,19 @@ export async function PATCH(
     }
   }
 
+  // rpe — Rate of Perceived Exertion 1-10
+  if (body.rpe !== undefined) {
+    if (body.rpe === null) {
+      updates.rpe = null
+    } else {
+      const r = Number(body.rpe)
+      if (!Number.isInteger(r) || r < 1 || r > 10) {
+        return NextResponse.json({ error: 'RPE musi być liczbą 1–10' }, { status: 400 })
+      }
+      updates.rpe = r
+    }
+  }
+
   // user_notes — free-form text, capped at 2000 chars
   if (body.user_notes !== undefined) {
     if (body.user_notes === null || body.user_notes === '') {

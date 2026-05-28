@@ -77,6 +77,18 @@ export default function WorkoutDetailPage() {
     setSaving(false)
   }
 
+  async function setRpe(value: number | null) {
+    if (!workout) return
+    const res = await fetch(`/api/workouts/${workout.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rpe: value }),
+    })
+    if (res.ok) {
+      setWorkout(prev => prev ? { ...prev, rpe: value } : prev)
+    }
+  }
+
   async function saveNotes() {
     if (!workout || notes === (workout.user_notes ?? '')) return
     setNotesSaving(true)
@@ -260,6 +272,61 @@ export default function WorkoutDetailPage() {
           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-2)' }}>
             {workout.description}
           </p>
+        </div>
+      )}
+
+      {/* RPE — only when completed */}
+      {isCompleted && workout.workout_type !== 'rest' && (
+        <div className="rounded-2xl p-5 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+                💪 Jak ciężki był ten trening?
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                1 = spacer · 10 = absolutne maksimum
+              </p>
+            </div>
+            {workout.rpe !== null && workout.rpe !== undefined && (
+              <button onClick={() => setRpe(null)}
+                className="text-xs underline" style={{ color: 'var(--text-3)' }}>
+                wyczyść
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-10 gap-1.5">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => {
+              const isSelected = workout.rpe === n
+              const color =
+                n <= 3 ? 'var(--blue)' :
+                n <= 5 ? 'var(--green)' :
+                n <= 7 ? 'var(--orange)' : 'var(--red, #ef4444)'
+              return (
+                <button
+                  key={n}
+                  onClick={() => setRpe(n)}
+                  className="aspect-square rounded-lg text-sm font-black flex items-center justify-center transition-all hover:-translate-y-0.5"
+                  style={{
+                    background: isSelected ? color : 'var(--surface2)',
+                    color: isSelected ? '#000' : 'var(--text-2)',
+                    border: `1px solid ${isSelected ? color : 'var(--border)'}`,
+                    fontFamily: 'var(--font-barlow-condensed), sans-serif',
+                  }}
+                >
+                  {n}
+                </button>
+              )
+            })}
+          </div>
+          {workout.rpe && (
+            <p className="text-xs mt-3 text-center" style={{ color: 'var(--text-3)' }}>
+              {workout.rpe <= 3 && '🟦 Łatwo — zostało dużo paliwa'}
+              {workout.rpe >= 4 && workout.rpe <= 5 && '🟩 Umiarkowanie — mogłeś jeszcze trochę'}
+              {workout.rpe >= 6 && workout.rpe <= 7 && '🟧 Ciężko — czuć wysiłek'}
+              {workout.rpe >= 8 && workout.rpe <= 9 && '🟥 Bardzo ciężko — na granicy'}
+              {workout.rpe === 10 && '🟥 Maksimum — wszystko co miałeś'}
+            </p>
+          )}
         </div>
       )}
 

@@ -334,6 +334,7 @@ export type Database = {
           id: string
           phase: string | null
           plan_id: string
+          rpe: number | null
           scheduled_date: string | null
           status: string
           target_pace: string | null
@@ -353,6 +354,7 @@ export type Database = {
           id?: string
           phase?: string | null
           plan_id: string
+          rpe?: number | null
           scheduled_date?: string | null
           status?: string
           target_pace?: string | null
@@ -372,6 +374,7 @@ export type Database = {
           id?: string
           phase?: string | null
           plan_id?: string
+          rpe?: number | null
           scheduled_date?: string | null
           status?: string
           target_pace?: string | null

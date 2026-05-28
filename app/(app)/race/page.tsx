@@ -9,6 +9,7 @@ import {
   formatPace,
   parseTimeToSeconds,
   getDistanceKm,
+  predictRaceTime,
   type Strategy,
   type Checkpoint,
 } from '@/lib/pace-calculator'
@@ -23,23 +24,55 @@ const STRATEGIES: { id: Strategy; label: string; desc: string }[] = [
   { id: 'progressive', label: 'Progresywny',      desc: 'Linearne przyspieszenie przez cały bieg' },
 ]
 
+type BestRecent = {
+  distance_m: number
+  moving_time_s: number
+  start_date: string
+} | null
+
 export default function RacePage() {
   const [profile, setProfile] = useState<{
     race_distance: string | null
     race_goal_time: string | null
     race_date: string | null
+    pb_5k: string | null
   } | null>(null)
+  const [bestRecent, setBestRecent] = useState<BestRecent>(null)
   const [loading, setLoading] = useState(true)
   const [strategy, setStrategy] = useState<Strategy>('negative')
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('runner_profiles')
-        .select('race_distance, race_goal_time, race_date')
-        .maybeSingle()
-      setProfile(data)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
+      const [profileRes, activitiesRes] = await Promise.all([
+        supabase.from('runner_profiles').select('race_distance, race_goal_time, race_date, pb_5k').maybeSingle(),
+        supabase.from('activities')
+          .select('distance_m, moving_time_s, start_date')
+          .gte('start_date', thirtyDaysAgo)
+          .gte('distance_m', 3000)  // ignore very short runs
+          .order('start_date', { ascending: false }),
+      ])
+
+      setProfile(profileRes.data)
+
+      // Pick the "best" recent run = highest score from time/distance ratio
+      // Riegel-equivalent at 5km. Lower score = faster.
+      const runs = activitiesRes.data ?? []
+      let best: BestRecent = null
+      let bestScore = Infinity
+      for (const r of runs) {
+        if (!r.distance_m || !r.moving_time_s) continue
+        const distKm = r.distance_m / 1000
+        // Predict 5K time from this run — the lowest prediction wins
+        const score = predictRaceTime(r.moving_time_s, distKm, 5)
+        if (score < bestScore) {
+          bestScore = score
+          best = r as BestRecent
+        }
+      }
+      setBestRecent(best)
+
       setLoading(false)
     }
     load()
@@ -83,11 +116,38 @@ export default function RacePage() {
     )
   }
 
-  const { race_distance, race_goal_time, race_date } = profile
+  const { race_distance, race_goal_time, race_date, pb_5k } = profile
   const checkpoints = calculatePacePlan(race_goal_time, race_distance, strategy)
   const distKm = getDistanceKm(race_distance)
   const totalSec = parseTimeToSeconds(race_goal_time)
   const evenPace = formatPace(totalSec / distKm)
+
+  // Race time prediction (Riegel)
+  let prediction: { sourceTime: number; sourceDistKm: number; sourceLabel: string; predictedSec: number } | null = null
+  if (bestRecent && bestRecent.distance_m > 0 && bestRecent.moving_time_s > 0) {
+    const sourceDistKm = bestRecent.distance_m / 1000
+    const predictedSec = predictRaceTime(bestRecent.moving_time_s, sourceDistKm, distKm)
+    prediction = {
+      sourceTime: bestRecent.moving_time_s,
+      sourceDistKm,
+      sourceLabel: `Bieg z ${new Date(bestRecent.start_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`,
+      predictedSec,
+    }
+  } else if (pb_5k) {
+    // Fallback to PB if no recent activities
+    const pbSec = parseTimeToSeconds(pb_5k)
+    if (pbSec > 0) {
+      const predictedSec = predictRaceTime(pbSec, 5, distKm)
+      prediction = {
+        sourceTime: pbSec,
+        sourceDistKm: 5,
+        sourceLabel: `Twój PB na 5 km`,
+        predictedSec,
+      }
+    }
+  }
+
+  const goalDelta = prediction ? totalSec - prediction.predictedSec : 0  // positive = prediction faster than goal
 
   // Days until race
   let daysUntil: number | null = null
@@ -122,6 +182,60 @@ export default function RacePage() {
           🖨️ Drukuj
         </button>
       </div>
+
+      {/* Race time prediction */}
+      {prediction && (
+        <div className="rounded-2xl p-5 mb-4 print:hidden"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3"
+            style={{ color: 'var(--text-3)' }}>
+            🔮 Prognoza czasu (wzór Riegla)
+          </p>
+          <div className="flex items-baseline justify-between mb-2 flex-wrap gap-3">
+            <div>
+              <p className="text-4xl font-black leading-none"
+                style={{
+                  fontFamily: 'var(--font-barlow-condensed), sans-serif',
+                  color: goalDelta >= 0 ? 'var(--green)' : 'var(--orange)',
+                }}>
+                {formatTime(prediction.predictedSec)}
+              </p>
+              <p className="text-xs mt-1.5" style={{ color: 'var(--text-3)' }}>
+                Twój przewidywany czas na {DISTANCE_LABELS[race_distance]}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
+                Cel
+              </p>
+              <p className="text-2xl font-black leading-none"
+                style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
+                {race_goal_time}
+              </p>
+            </div>
+          </div>
+
+          {/* Verdict */}
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+            {goalDelta >= 0 ? (
+              <p className="text-sm" style={{ color: 'var(--green)' }}>
+                ✓ <strong>Cel w zasięgu</strong> — przy obecnej formie powinieneś zrobić cel z zapasem {formatTime(Math.abs(goalDelta))}.
+              </p>
+            ) : Math.abs(goalDelta) < totalSec * 0.05 ? (
+              <p className="text-sm" style={{ color: 'var(--orange)' }}>
+                ⚡ <strong>Blisko celu</strong> — brakuje Ci ~{formatTime(Math.abs(goalDelta))} ({Math.round(Math.abs(goalDelta) / totalSec * 100)}%). Jest realny przy dobrym dniu i tempie.
+              </p>
+            ) : (
+              <p className="text-sm" style={{ color: 'var(--orange)' }}>
+                ⚠ <strong>Cel jest ambitny</strong> — brakuje ~{formatTime(Math.abs(goalDelta))} ({Math.round(Math.abs(goalDelta) / totalSec * 100)}%). Skup się na biegach progowych i tempowych.
+              </p>
+            )}
+            <p className="text-xs mt-2" style={{ color: 'var(--text-3)' }}>
+              Bazuje na: {prediction.sourceLabel} ({prediction.sourceDistKm.toFixed(2)} km w {formatTime(prediction.sourceTime)})
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Strategy selector */}
       <div className="rounded-2xl p-4 mb-4"
