@@ -160,11 +160,22 @@ export default function SettingsPage() {
 
   async function deleteAccount() {
     setDeleting(true)
-    // Supabase doesn't allow client-side user deletion — send to support or use admin API
-    // For now: sign out and show instruction
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login?deleted=1')
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Nie udało się usunąć konta. Spróbuj ponownie lub napisz na plewandowskkii@gmail.com')
+        setDeleting(false)
+        return
+      }
+      // Ensure local session is cleared even if server-side signOut raced
+      await createClient().auth.signOut()
+      router.push('/login?deleted=1')
+    } catch (err) {
+      console.error('[DELETE ACCOUNT]', err)
+      alert('Błąd sieci. Spróbuj ponownie.')
+      setDeleting(false)
+    }
   }
 
   if (loading) return (

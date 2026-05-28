@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const deleted = searchParams.get('deleted') === '1'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -44,6 +46,13 @@ export default function LoginPage() {
       <p className="text-sm mb-8" style={{ color: 'var(--text-2)' }}>
         Witaj z powrotem, biegaczu.
       </p>
+
+      {deleted && (
+        <div className="rounded-xl px-4 py-3 mb-6 text-sm"
+          style={{ background: 'var(--green-dim)', border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)' }}>
+          ✓ Twoje konto i wszystkie dane zostały trwale usunięte.
+        </div>
+      )}
 
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
