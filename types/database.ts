@@ -339,6 +339,7 @@ export type Database = {
           target_pace: string | null
           title: string
           user_id: string
+          user_notes: string | null
           week_number: number
           workout_type: string
         }
@@ -357,6 +358,7 @@ export type Database = {
           target_pace?: string | null
           title: string
           user_id: string
+          user_notes?: string | null
           week_number: number
           workout_type: string
         }
@@ -375,6 +377,7 @@ export type Database = {
           target_pace?: string | null
           title?: string
           user_id?: string
+          user_notes?: string | null
           week_number?: number
           workout_type?: string
         }

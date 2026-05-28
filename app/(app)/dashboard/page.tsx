@@ -5,6 +5,7 @@ import StravaToast from '@/components/StravaToast'
 import TodayBanner from '@/components/TodayBanner'
 import AdaptationBanner from '@/components/AdaptationBanner'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
+import { formatPace, formatDuration } from '@/lib/strava'
 import type { AdaptationResult } from '@/lib/plan-adaptation'
 
 export default async function DashboardPage({
@@ -17,6 +18,7 @@ export default async function DashboardPage({
   if (!user) redirect('/login')
 
   const params = await searchParams
+  const weekAgoISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
 
   const [
     { data: profile },
@@ -25,6 +27,7 @@ export default async function DashboardPage({
     { data: stravaToken },
     { data: recentActivity },
     { data: adaptationComment },
+    { data: weekActivities },
   ] = await Promise.all([
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
@@ -32,7 +35,15 @@ export default async function DashboardPage({
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
     supabase.from('activities').select('*').eq('user_id', user.id).order('start_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('activities').select('distance_m, moving_time_s, avg_pace_s_per_km').eq('user_id', user.id).gte('start_date', weekAgoISO),
   ])
+
+  // Compute weekly summary stats
+  const weekRuns = weekActivities ?? []
+  const weekKm = weekRuns.reduce((s, a) => s + (a.distance_m ?? 0) / 1000, 0)
+  const weekTime = weekRuns.reduce((s, a) => s + (a.moving_time_s ?? 0), 0)
+  const weekPaces = weekRuns.filter(a => a.avg_pace_s_per_km).map(a => a.avg_pace_s_per_km!)
+  const weekAvgPace = weekPaces.length ? Math.round(weekPaces.reduce((s, p) => s + p, 0) / weekPaces.length) : null
 
   // Parse pending adaptation suggestion (skip if applied or dismissed)
   let pendingAdaptation: { id: string; result: AdaptationResult } | null = null
@@ -198,6 +209,27 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {/* Weekly summary widget */}
+      {weekRuns.length > 0 && (
+        <div className="rounded-2xl p-5 mb-4"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+              📊 Ostatnie 7 dni
+            </p>
+            <Link href="/stats" className="text-xs font-semibold" style={{ color: 'var(--green)' }}>
+              Statystyki →
+            </Link>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <WeeklyStat label="Biegi" value={String(weekRuns.length)} unit="" accent />
+            <WeeklyStat label="Dystans" value={weekKm.toFixed(1)} unit="km" />
+            <WeeklyStat label="Śr. tempo" value={weekAvgPace ? formatPace(weekAvgPace) : '—'} unit={weekAvgPace ? '/km' : ''} />
+            <WeeklyStat label="Czas" value={weekTime > 0 ? formatDuration(weekTime) : '—'} unit="" />
+          </div>
+        </div>
+      )}
+
       {/* Strava section */}
       <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         {stravaToken ? (
@@ -255,6 +287,21 @@ function StatItem({ label, value }: { label: string; value: string }) {
       <p className="text-xl font-black leading-tight" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
         {value}
       </p>
+    </div>
+  )
+}
+
+function WeeklyStat({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-1.5 truncate" style={{ color: 'var(--text-3)' }}>
+        {label}
+      </p>
+      <p className="text-lg font-black leading-none truncate"
+        style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: accent ? 'var(--green)' : 'var(--text)' }}>
+        {value}
+      </p>
+      {unit && <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>{unit}</p>}
     </div>
   )
 }
