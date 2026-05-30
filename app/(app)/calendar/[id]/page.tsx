@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { classifyHR, estimateMaxHR } from '@/lib/heart-rate-zones'
+import { formatPace, formatDuration } from '@/lib/strava'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
+import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
 import type { Workout, Activity } from '@/types/database'
 
 const TYPE_META: Record<string, { color: string; bg: string; emoji: string; zone: string; label: string }> = {
@@ -13,6 +15,12 @@ const TYPE_META: Record<string, { color: string; bg: string; emoji: string; zone
   tempo:     { color: 'var(--orange)', bg: 'var(--orange-dim)', emoji: '⚡', zone: 'Z3',    label: 'Tempo Run' },
   intervals: { color: 'var(--orange)', bg: 'var(--orange-dim)', emoji: '🔥', zone: 'Z4–Z5', label: 'Interwały' },
   rest:      { color: 'var(--text-3)', bg: 'var(--surface3)',   emoji: '😴', zone: '—',     label: 'Odpoczynek' },
+}
+
+// Hex equivalents for canvas (CSS vars don't work in canvas context)
+const TYPE_HEX: Record<string, string> = {
+  easy_run: '#3b82f6', long_run: '#3b82f6',
+  tempo: '#ff9100', intervals: '#ff9100', rest: '#8a8a8a',
 }
 
 const DAY_PL: Record<string, string> = {
@@ -382,6 +390,11 @@ export default function WorkoutDetailPage() {
           </button>
         )}
 
+        {/* Share result — only for completed runs */}
+        {isCompleted && workout.workout_type !== 'rest' && (
+          <ShareWorkoutButton data={buildShareData(workout, matchedActivity, meta.emoji, meta.label)} />
+        )}
+
         {/* Garmin export */}
         {workout.workout_type !== 'rest' && (
           <a href={`/api/export/workout?id=${workout.id}`}
@@ -541,6 +554,48 @@ function Field({
 /** Extract only MM:SS from pace strings that may contain extra description text */
 function cleanPace(raw: string): string {
   return raw.match(/^\d+:\d{2}/)?.[0] ?? raw
+}
+
+/** Build the data object for the shareable card, preferring real Strava activity data */
+function buildShareData(
+  workout: Workout,
+  activity: Activity | null,
+  emoji: string,
+  typeLabel: string,
+): ShareCardData {
+  const fromStrava = !!activity?.distance_m
+  const distanceKm = fromStrava
+    ? (activity!.distance_m ?? 0) / 1000
+    : (workout.distance_km ?? 0)
+
+  const pace = fromStrava && activity!.avg_pace_s_per_km
+    ? formatPace(activity!.avg_pace_s_per_km)
+    : workout.target_pace
+      ? cleanPace(workout.target_pace)
+      : null
+
+  const duration = fromStrava && activity!.moving_time_s
+    ? formatDuration(activity!.moving_time_s)
+    : workout.duration_minutes
+      ? `${workout.duration_minutes} min`
+      : null
+
+  const completedDate = workout.completed_at ?? activity?.start_date ?? new Date().toISOString()
+
+  return {
+    title: workout.title,
+    typeLabel,
+    emoji,
+    distanceText: fromStrava ? distanceKm.toFixed(2) : String(distanceKm),
+    pace,
+    duration,
+    rpe: workout.rpe ?? null,
+    heartrate: activity?.avg_heartrate ? Math.round(activity.avg_heartrate) : null,
+    dateLabel: new Date(completedDate).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }),
+    weekLabel: workout.week_number ? `Tydzień ${workout.week_number}` : null,
+    accentColor: TYPE_HEX[workout.workout_type] ?? '#00e676',
+    fromStrava,
+  }
 }
 
 function MetricBlock({ label, value, unit, color }: { label: string; value: string; unit: string; color: string }) {
