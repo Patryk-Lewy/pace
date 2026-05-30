@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { classifyHR, estimateMaxHR } from '@/lib/heart-rate-zones'
@@ -40,38 +40,64 @@ export default function WorkoutDetailPage() {
   const [notes, setNotes] = useState('')
   const [notesSaving, setNotesSaving] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [assigning, setAssigning] = useState(false)
 
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient()
-      const { data: w } = await supabase.from('workouts').select('*').eq('id', id).single()
-      setWorkout(w)
-      setNotes(w?.user_notes ?? '')
+  const load = useCallback(async () => {
+    const supabase = createClient()
+    const { data: w } = await supabase.from('workouts').select('*').eq('id', id).single()
+    setWorkout(w)
+    setNotes(w?.user_notes ?? '')
 
-      if (w) {
-        // Find matched Strava activity for this workout
-        const { data: act } = await supabase
+    if (w) {
+      const { data: act } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('matched_workout_id', w.id)
+        .maybeSingle()
+
+      setMatchedActivity(act ?? null)
+
+      if (act) {
+        const { data: recent } = await supabase
           .from('activities')
-          .select('*')
-          .eq('matched_workout_id', w.id)
-          .maybeSingle()
-
-        if (act) {
-          setMatchedActivity(act)
-          // Estimate maxHR from recent activities to classify zones
-          const { data: recent } = await supabase
-            .from('activities')
-            .select('max_heartrate')
-            .order('start_date', { ascending: false })
-            .limit(20)
-          setMaxHR(estimateMaxHR(recent ?? []))
-        }
+          .select('max_heartrate')
+          .order('start_date', { ascending: false })
+          .limit(20)
+        setMaxHR(estimateMaxHR(recent ?? []))
       }
-
-      setLoading(false)
     }
-    load()
+
+    setLoading(false)
   }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  async function assignActivity(activityId: string) {
+    setAssigning(true)
+    const res = await fetch(`/api/activities/${activityId}/match`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workout_id: id }),
+    })
+    setAssigning(false)
+    if (res.ok) {
+      setAssignOpen(false)
+      await load()
+    }
+  }
+
+  async function unlinkActivity() {
+    if (!matchedActivity) return
+    setAssigning(true)
+    const res = await fetch(`/api/activities/${matchedActivity.id}/match`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workout_id: null }),
+    })
+    setAssigning(false)
+    if (res.ok) await load()
+  }
 
   async function setStatus(status: 'planned' | 'completed' | 'skipped') {
     if (!workout) return
@@ -269,6 +295,62 @@ export default function WorkoutDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Link management — assign / change / unlink a Strava run */}
+      {workout.workout_type !== 'rest' && (
+        <div className="rounded-2xl p-4 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          {matchedActivity ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
+                  🔗 Powiązany bieg
+                </p>
+                <p className="text-sm font-semibold">{matchedActivity.name}</p>
+                <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                  {new Date(matchedActivity.start_date).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 shrink-0">
+                <button onClick={() => setAssignOpen(true)} disabled={assigning}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold transition-all"
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+                  Zmień
+                </button>
+                <button onClick={unlinkActivity} disabled={assigning}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold transition-all"
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
+                  {assigning ? '...' : 'Odepnij'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
+                  🔗 Brak powiązanego biegu
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                  Przypisz bieg ze Stravy, jeśli zrobiłeś ten trening
+                </p>
+              </div>
+              <button onClick={() => setAssignOpen(true)} disabled={assigning}
+                className="rounded-xl px-4 py-2.5 text-sm font-bold transition-all shrink-0"
+                style={{ background: 'var(--green-dim)', border: '1px solid var(--green)', color: 'var(--green)' }}>
+                Przypisz bieg
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {assignOpen && (
+        <AssignActivityModal
+          currentActivityId={matchedActivity?.id ?? null}
+          onPick={assignActivity}
+          onClose={() => setAssignOpen(false)}
+          busy={assigning}
+        />
       )}
 
       {/* Description */}
@@ -547,6 +629,86 @@ function Field({
         }}
       />
       {hint && <p className="text-xs mt-1.5" style={{ color: 'var(--text-3)' }}>{hint}</p>}
+    </div>
+  )
+}
+
+function AssignActivityModal({
+  currentActivityId, onPick, onClose, busy,
+}: {
+  currentActivityId: string | null
+  onPick: (activityId: string) => void
+  onClose: () => void
+  busy: boolean
+}) {
+  const [activities, setActivities] = useState<Activity[] | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const monthAgo = new Date(Date.now() - 28 * 24 * 3600 * 1000).toISOString()
+      const { data } = await supabase
+        .from('activities')
+        .select('*')
+        .is('matched_workout_id', null)
+        .gte('start_date', monthAgo)
+        .gte('distance_m', 1000)
+        .order('start_date', { ascending: false })
+        .limit(30)
+      setActivities(data ?? [])
+    }
+    load()
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col animate-fade-up"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border)' }}>
+          <h2 className="text-xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
+            Wybierz bieg
+          </h2>
+          <button onClick={onClose} className="text-2xl" style={{ color: 'var(--text-3)' }}>×</button>
+        </div>
+
+        <div className="overflow-y-auto p-3">
+          {activities === null && (
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-3)' }}>Ładowanie...</p>
+          )}
+          {activities?.length === 0 && (
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-3)' }}>
+              Brak nieprzypisanych biegów z ostatnich 4 tygodni.
+            </p>
+          )}
+          {activities?.map(a => (
+            <button key={a.id} onClick={() => onPick(a.id)} disabled={busy}
+              className="w-full text-left rounded-xl p-3 mb-2 transition-all hover:opacity-80"
+              style={{
+                background: a.id === currentActivityId ? 'var(--green-dim)' : 'var(--surface2)',
+                border: `1px solid ${a.id === currentActivityId ? 'var(--green)' : 'var(--border)'}`,
+              }}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">{a.name}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    {new Date(a.start_date).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-base font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
+                    {((a.distance_m ?? 0) / 1000).toFixed(2)} km
+                  </p>
+                  {a.avg_pace_s_per_km && (
+                    <p className="text-xs" style={{ color: 'var(--text-3)' }}>{formatPace(a.avg_pace_s_per_km)}/km</p>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

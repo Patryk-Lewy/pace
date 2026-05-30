@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getValidAccessToken, fetchRecentActivities, speedToSecPerKm } from '@/lib/strava'
-import Anthropic from '@anthropic-ai/sdk'
+import { findWorkoutForActivityDate, generateWorkoutComment, MIN_RUN_DISTANCE_M } from '@/lib/workout-matching'
 
 export const maxDuration = 60
-
-const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST() {
   try {
@@ -49,39 +47,25 @@ export async function POST() {
       if (!savedActivity) continue
       synced++
 
-      // Match with planned workout
-      const { data: matchedWorkout } = await supabase
-        .from('workouts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'planned')
-        .neq('workout_type', 'rest')
-        .order('week_number')
-        .limit(1)
-        .maybeSingle()
+      // Skip tiny runs (GPS noise) — saved, but not matched or commented
+      if ((act.distance ?? 0) < MIN_RUN_DISTANCE_M) continue
+
+      // Match by DATE: planned workout scheduled for this activity's day
+      const matchedWorkout = await findWorkoutForActivityDate(supabase, user.id, act.start_date)
 
       if (matchedWorkout) {
         await supabase.from('workouts').update({ status: 'completed', completed_at: act.start_date }).eq('id', matchedWorkout.id)
         await supabase.from('activities').update({ matched_workout_id: matchedWorkout.id }).eq('id', savedActivity.id)
 
-        const distKm = (act.distance / 1000).toFixed(2)
-        const paceStr = `${Math.floor(paceSecPerKm / 60)}:${(paceSecPerKm % 60).toString().padStart(2, '0')}`
-
-        const msg = await getAnthropic().messages.create({
-          model: 'claude-haiku-4-5',
-          max_tokens: 300,
-          messages: [{
-            role: 'user',
-            content: `Jesteś AI trenerem biegowym PACE. Skomentuj krótko (2-3 zdania, po polsku) wynik treningu biegacza.
-
-Zaplanowany trening: ${matchedWorkout.title} — ${matchedWorkout.distance_km ?? '—'} km @ ${matchedWorkout.target_pace ?? '—'}/km
-Wykonany trening: ${distKm} km @ ${paceStr}/km${act.average_heartrate ? `, śr. tętno ${act.average_heartrate} bpm` : ''}
-
-Bądź konkretny, motywujący i merytoryczny.`,
-          }],
+        const comment = await generateWorkoutComment({
+          workoutTitle: matchedWorkout.title,
+          plannedDistanceKm: matchedWorkout.distance_km,
+          plannedPace: matchedWorkout.target_pace,
+          actualDistanceM: act.distance,
+          actualPaceSecPerKm: paceSecPerKm,
+          heartrate: act.average_heartrate ?? null,
         })
 
-        const comment = msg.content[0].type === 'text' ? msg.content[0].text : ''
         await supabase.from('activities').update({
           ai_comment: comment,
           ai_analyzed_at: new Date().toISOString(),

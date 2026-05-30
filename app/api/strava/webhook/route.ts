@@ -2,11 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getValidAccessToken, speedToSecPerKm } from '@/lib/strava'
 import { analyzeAndAdapt } from '@/lib/plan-adaptation'
-import Anthropic from '@anthropic-ai/sdk'
+import { findWorkoutForActivityDate, generateWorkoutComment, MIN_RUN_DISTANCE_M } from '@/lib/workout-matching'
 
 export const maxDuration = 60
-
-const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 // GET — Strava webhook verification
 export async function GET(request: NextRequest) {
@@ -85,17 +83,11 @@ export async function POST(request: NextRequest) {
 
     if (!savedActivity) return NextResponse.json({ ok: true })
 
-    // Match with planned workout (next unfinished run in the plan)
-    const { data: matchedWorkout } = await supabase
-      .from('workouts')
-      .select('*')
-      .eq('user_id', tokenRow.user_id)
-      .eq('status', 'planned')
-      .neq('workout_type', 'rest')
-      .order('week_number')
-      .order('day_of_week')
-      .limit(1)
-      .maybeSingle()
+    // Skip tiny runs (GPS noise) — saved, but not matched or commented
+    if ((act.distance ?? 0) < MIN_RUN_DISTANCE_M) return NextResponse.json({ ok: true })
+
+    // Match by DATE: find the planned workout scheduled for this activity's day
+    const matchedWorkout = await findWorkoutForActivityDate(supabase, tokenRow.user_id, act.start_date)
 
     if (matchedWorkout) {
       await supabase
@@ -108,27 +100,14 @@ export async function POST(request: NextRequest) {
         .update({ matched_workout_id: matchedWorkout.id })
         .eq('id', savedActivity.id)
 
-      // Claude analysis
-      const distKm = (act.distance / 1000).toFixed(2)
-      const paceStr = `${Math.floor(paceSecPerKm / 60)}:${(paceSecPerKm % 60).toString().padStart(2, '0')}`
-      const plannedPace = matchedWorkout.target_pace ?? '—'
-      const plannedDist = matchedWorkout.distance_km ?? '—'
-
-      const msg = await getAnthropic().messages.create({
-        model: 'claude-haiku-4-5',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `Jesteś AI trenerem biegowym PACE. Skomentuj krótko (2-3 zdania, po polsku) wynik treningu biegacza.
-
-Zaplanowany trening: ${matchedWorkout.title} — ${plannedDist} km @ ${plannedPace}/km
-Wykonany trening: ${distKm} km @ ${paceStr}/km${act.average_heartrate ? `, śr. tętno ${act.average_heartrate} bpm` : ''}
-
-Bądź konkretny, motywujący i merytoryczny.`,
-        }],
+      const comment = await generateWorkoutComment({
+        workoutTitle: matchedWorkout.title,
+        plannedDistanceKm: matchedWorkout.distance_km,
+        plannedPace: matchedWorkout.target_pace,
+        actualDistanceM: act.distance,
+        actualPaceSecPerKm: paceSecPerKm,
+        heartrate: act.average_heartrate ?? null,
       })
-
-      const comment = msg.content[0].type === 'text' ? msg.content[0].text : ''
 
       await supabase
         .from('activities')
