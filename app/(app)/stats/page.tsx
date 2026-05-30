@@ -34,9 +34,15 @@ function groupByWeek(activities: Activity[]): WeekGroup[] {
     })
 }
 
+type PlanWorkoutLite = { id: string; title: string; week_number: number; day_of_week: string }
+
+const DAY_IDX: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 }
+const DAY_SHORT: Record<string, string> = { mon: 'Pn', tue: 'Wt', wed: 'Śr', thu: 'Cz', fri: 'Pt', sat: 'Sb', sun: 'Nd' }
+
 export default function StatsPage() {
   const [token, setToken] = useState<StravaToken | null | undefined>(undefined)
   const [activities, setActivities] = useState<Activity[]>([])
+  const [planWorkouts, setPlanWorkouts] = useState<PlanWorkoutLite[]>([])
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -46,12 +52,27 @@ export default function StatsPage() {
   async function loadData() {
     setLoading(true)
     const supabase = createClient()
-    const [{ data: tok }, { data: acts }] = await Promise.all([
+    const [{ data: tok }, { data: acts }, { data: plan }] = await Promise.all([
       supabase.from('strava_tokens').select('*').maybeSingle(),
-      supabase.from('activities').select('*').order('start_date', { ascending: false }).limit(500),
+      supabase.from('activities').select('*').eq('hidden', false).order('start_date', { ascending: false }).limit(500),
+      supabase.from('training_plans').select('id').eq('status', 'active').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
+
+    let wk: PlanWorkoutLite[] = []
+    if (plan) {
+      const { data } = await supabase
+        .from('workouts')
+        .select('id, title, week_number, day_of_week')
+        .eq('plan_id', plan.id)
+        .neq('workout_type', 'rest')
+      wk = (data ?? []).sort((a, b) =>
+        a.week_number - b.week_number || (DAY_IDX[a.day_of_week] ?? 0) - (DAY_IDX[b.day_of_week] ?? 0)
+      )
+    }
+
     setToken(tok)
     setActivities(acts ?? [])
+    setPlanWorkouts(wk)
     setLoading(false)
   }
 
@@ -202,7 +223,7 @@ export default function StatsPage() {
                 {/* Activities */}
                 <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                   {week.activities.map(act => (
-                    <ActivityRow key={act.id} activity={act} />
+                    <ActivityRow key={act.id} activity={act} workouts={planWorkouts} onChanged={loadData} />
                   ))}
                 </div>
               </div>
@@ -214,9 +235,15 @@ export default function StatsPage() {
   )
 }
 
-function ActivityRow({ activity: a }: { activity: Activity }) {
+function ActivityRow({ activity: a, workouts, onChanged }: {
+  activity: Activity
+  workouts: PlanWorkoutLite[]
+  onChanged: () => void
+}) {
+  const [manageOpen, setManageOpen] = useState(false)
   const distKm = ((a.distance_m ?? 0) / 1000).toFixed(2)
   const date = new Date(a.start_date).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })
+  const matched = workouts.find(w => w.id === a.matched_workout_id)
 
   return (
     <div className="px-5 py-4">
@@ -247,6 +274,119 @@ function ActivityRow({ activity: a }: { activity: Activity }) {
           <p className="text-sm" style={{ color: 'var(--text-2)' }}>{a.ai_comment}</p>
         </div>
       )}
+
+      {/* Assignment + manage */}
+      <div className="flex items-center justify-between gap-3 mt-2">
+        <p className="text-xs" style={{ color: matched ? 'var(--green)' : 'var(--text-3)' }}>
+          {matched
+            ? `📋 ${matched.title} (T${matched.week_number} · ${DAY_SHORT[matched.day_of_week] ?? ''})`
+            : '○ Nieprzypisany do planu'}
+        </p>
+        <button onClick={() => setManageOpen(true)}
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-all shrink-0"
+          style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
+          Zarządzaj
+        </button>
+      </div>
+
+      {manageOpen && (
+        <ManageActivityModal
+          activity={a}
+          workouts={workouts}
+          onClose={() => setManageOpen(false)}
+          onChanged={() => { setManageOpen(false); onChanged() }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ManageActivityModal({ activity: a, workouts, onClose, onChanged }: {
+  activity: Activity
+  workouts: PlanWorkoutLite[]
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  async function assign(workoutId: string | null) {
+    setBusy(true)
+    const res = await fetch(`/api/activities/${a.id}/match`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workout_id: workoutId }),
+    })
+    setBusy(false)
+    if (res.ok) onChanged()
+  }
+
+  async function remove() {
+    if (!confirm('Usunąć ten bieg z historii? Nie wróci przy kolejnej synchronizacji.')) return
+    setBusy(true)
+    const res = await fetch(`/api/activities/${a.id}`, { method: 'DELETE' })
+    setBusy(false)
+    if (res.ok) onChanged()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col animate-fade-up"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div>
+            <h2 className="text-xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
+              {a.name}
+            </h2>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              {((a.distance_m ?? 0) / 1000).toFixed(2)} km · {new Date(a.start_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-2xl" style={{ color: 'var(--text-3)' }}>×</button>
+        </div>
+
+        <div className="overflow-y-auto p-3">
+          <p className="text-xs font-semibold uppercase tracking-widest px-2 mb-2" style={{ color: 'var(--text-3)' }}>
+            Przypisz do treningu
+          </p>
+          {workouts.length === 0 && (
+            <p className="text-sm px-2 py-4" style={{ color: 'var(--text-3)' }}>Brak aktywnego planu.</p>
+          )}
+          {workouts.map(w => {
+            const isCurrent = w.id === a.matched_workout_id
+            return (
+              <button key={w.id} onClick={() => assign(w.id)} disabled={busy}
+                className="w-full text-left rounded-xl px-3 py-2.5 mb-1.5 transition-all hover:opacity-80"
+                style={{
+                  background: isCurrent ? 'var(--green-dim)' : 'var(--surface2)',
+                  border: `1px solid ${isCurrent ? 'var(--green)' : 'var(--border)'}`,
+                }}>
+                <span className="text-xs font-semibold mr-2" style={{ color: 'var(--text-3)' }}>
+                  T{w.week_number}·{DAY_SHORT[w.day_of_week] ?? ''}
+                </span>
+                <span className="text-sm" style={{ color: isCurrent ? 'var(--green)' : 'var(--text)' }}>{w.title}</span>
+                {isCurrent && <span className="text-xs ml-2" style={{ color: 'var(--green)' }}>✓ obecny</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex gap-2 p-3 border-t" style={{ borderColor: 'var(--border)' }}>
+          {a.matched_workout_id && (
+            <button onClick={() => assign(null)} disabled={busy}
+              className="flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all"
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+              Odepnij
+            </button>
+          )}
+          <button onClick={remove} disabled={busy}
+            className="flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all"
+            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }}>
+            {busy ? '...' : 'Usuń bieg'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

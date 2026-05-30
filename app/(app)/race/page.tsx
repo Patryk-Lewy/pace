@@ -49,6 +49,7 @@ export default function RacePage() {
         supabase.from('runner_profiles').select('race_distance, race_goal_time, race_date, pb_5k').maybeSingle(),
         supabase.from('activities')
           .select('distance_m, moving_time_s, start_date')
+          .eq('hidden', false)
           .gte('start_date', thirtyDaysAgo)
           .gte('distance_m', 3000)  // ignore very short runs
           .order('start_date', { ascending: false }),

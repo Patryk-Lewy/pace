@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
         .from('activities')
         .select('distance_m, moving_time_s, avg_pace_s_per_km')
         .eq('user_id', userId)
+        .eq('hidden', false)
         .gte('start_date', weekAgoISO)
         .order('start_date', { ascending: false })
 

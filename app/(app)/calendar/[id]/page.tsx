@@ -651,6 +651,7 @@ function AssignActivityModal({
         .from('activities')
         .select('*')
         .is('matched_workout_id', null)
+        .eq('hidden', false)
         .gte('start_date', monthAgo)
         .gte('distance_m', 1000)
         .order('start_date', { ascending: false })

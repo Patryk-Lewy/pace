@@ -33,9 +33,9 @@ export default async function DashboardPage({
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
     supabase.from('workouts').select('*').eq('user_id', user.id).eq('status', 'planned').order('week_number').order('day_of_week').limit(1).maybeSingle(),
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
-    supabase.from('activities').select('*').eq('user_id', user.id).order('start_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('activities').select('*').eq('user_id', user.id).eq('hidden', false).order('start_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('activities').select('distance_m, moving_time_s, avg_pace_s_per_km').eq('user_id', user.id).gte('start_date', weekAgoISO),
+    supabase.from('activities').select('distance_m, moving_time_s, avg_pace_s_per_km').eq('user_id', user.id).eq('hidden', false).gte('start_date', weekAgoISO),
   ])
 
   // Compute weekly summary stats

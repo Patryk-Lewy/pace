@@ -24,6 +24,7 @@ export type Database = {
           created_at: string
           distance_m: number | null
           elapsed_time_s: number | null
+          hidden: boolean
           id: string
           matched_workout_id: string | null
           max_heartrate: number | null
@@ -43,6 +44,7 @@ export type Database = {
           created_at?: string
           distance_m?: number | null
           elapsed_time_s?: number | null
+          hidden?: boolean
           id?: string
           matched_workout_id?: string | null
           max_heartrate?: number | null
@@ -62,6 +64,7 @@ export type Database = {
           created_at?: string
           distance_m?: number | null
           elapsed_time_s?: number | null
+          hidden?: boolean
           id?: string
           matched_workout_id?: string | null
           max_heartrate?: number | null
