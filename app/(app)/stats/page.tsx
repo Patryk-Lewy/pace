@@ -318,6 +318,10 @@ function ManageActivityModal({ activity: a, workouts, onClose, onChanged }: {
     })
     setBusy(false)
     if (res.ok) onChanged()
+    else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Nie udało się zmienić przypisania. Spróbuj ponownie.')
+    }
   }
 
   async function remove() {
@@ -326,6 +330,10 @@ function ManageActivityModal({ activity: a, workouts, onClose, onChanged }: {
     const res = await fetch(`/api/activities/${a.id}`, { method: 'DELETE' })
     setBusy(false)
     if (res.ok) onChanged()
+    else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Nie udało się usunąć biegu. Spróbuj ponownie.')
+    }
   }
 
   return (

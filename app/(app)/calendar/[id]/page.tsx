@@ -84,6 +84,9 @@ export default function WorkoutDetailPage() {
     if (res.ok) {
       setAssignOpen(false)
       await load()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Nie udało się przypisać biegu. Spróbuj ponownie.')
     }
   }
 
@@ -97,6 +100,10 @@ export default function WorkoutDetailPage() {
     })
     setAssigning(false)
     if (res.ok) await load()
+    else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Nie udało się odpiąć biegu. Spróbuj ponownie.')
+    }
   }
 
   async function setStatus(status: 'planned' | 'completed' | 'skipped') {
@@ -144,7 +151,6 @@ export default function WorkoutDetailPage() {
     distance_km?: number | null
     target_pace?: string | null
     duration_minutes?: number | null
-    scheduled_date?: string | null
   }) {
     if (!workout) return { ok: false, error: 'Brak treningu' }
     const res = await fetch(`/api/workouts/${workout.id}`, {
@@ -508,13 +514,11 @@ function EditModal({
     distance_km?: number | null
     target_pace?: string | null
     duration_minutes?: number | null
-    scheduled_date?: string | null
   }) => Promise<{ ok: boolean; error?: string }>
 }) {
   const [distance, setDistance] = useState(workout.distance_km?.toString() ?? '')
   const [pace, setPace] = useState(workout.target_pace ? workout.target_pace.match(/^\d+:\d{2}/)?.[0] ?? workout.target_pace : '')
   const [duration, setDuration] = useState(workout.duration_minutes?.toString() ?? '')
-  const [date, setDate] = useState(workout.scheduled_date ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -525,7 +529,6 @@ function EditModal({
       distance_km: distance === '' ? null : Number(distance),
       target_pace: pace.trim() || null,
       duration_minutes: duration === '' ? null : Number(duration),
-      scheduled_date: date || null,
     })
     setSaving(false)
     if (result.ok) {
@@ -560,10 +563,6 @@ function EditModal({
 
           <Field label="Czas (min)" type="number" step="1" min="0" max="600"
             value={duration} onChange={setDuration} placeholder="np. 45" />
-
-          <Field label="Data treningu" type="date"
-            value={date} onChange={setDate}
-            hint="Pozwala przesunąć trening na inny dzień" />
         </div>
 
         {error && (

@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateWorkoutComment } from '@/lib/workout-matching'
+import type { Database } from '@/types/database'
+
+type Workout = Database['public']['Tables']['workouts']['Row']
 
 /**
  * PATCH /api/activities/[id]/match
@@ -44,6 +47,20 @@ export async function PATCH(
 
   const previousWorkoutId = activity.matched_workout_id
 
+  // Validate the target BEFORE mutating anything — avoids leaving the previous
+  // workout reverted while the activity still points at it on an error path.
+  let workout: Workout | null = null
+  if (workoutId !== null) {
+    const { data } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('id', workoutId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!data) return NextResponse.json({ error: 'Nie znaleziono treningu' }, { status: 404 })
+    workout = data
+  }
+
   // Revert the previously-linked workout back to planned
   if (previousWorkoutId && previousWorkoutId !== workoutId) {
     await supabase
@@ -54,23 +71,13 @@ export async function PATCH(
   }
 
   // ── Detach (luźny bieg) ──────────────────────────────────────────────
-  if (workoutId === null) {
+  if (workoutId === null || !workout) {
     await supabase
       .from('activities')
       .update({ matched_workout_id: null, ai_comment: null, ai_analyzed_at: null })
       .eq('id', id)
     return NextResponse.json({ ok: true, matched_workout_id: null })
   }
-
-  // Verify target workout belongs to the user
-  const { data: workout } = await supabase
-    .from('workouts')
-    .select('*')
-    .eq('id', workoutId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!workout) return NextResponse.json({ error: 'Nie znaleziono treningu' }, { status: 404 })
 
   // Detach any other activity currently linked to this workout (keep 1:1)
   await supabase
