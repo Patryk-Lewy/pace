@@ -6,6 +6,7 @@ import TodayBanner from '@/components/TodayBanner'
 import AdaptationBanner from '@/components/AdaptationBanner'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
 import { formatPace, formatDuration } from '@/lib/strava'
+import { computeWorkoutDate } from '@/lib/workout-matching'
 import type { AdaptationResult } from '@/lib/plan-adaptation'
 
 export default async function DashboardPage({
@@ -23,7 +24,7 @@ export default async function DashboardPage({
   const [
     { data: profile },
     { data: activePlan },
-    { data: nextWorkout },
+    { data: plannedWorkouts },
     { data: stravaToken },
     { data: recentActivity },
     { data: adaptationComment },
@@ -31,7 +32,7 @@ export default async function DashboardPage({
   ] = await Promise.all([
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
-    supabase.from('workouts').select('*').eq('user_id', user.id).eq('status', 'planned').order('week_number').order('day_of_week').limit(1).maybeSingle(),
+    supabase.from('workouts').select('*').eq('user_id', user.id).eq('status', 'planned').neq('workout_type', 'rest'),
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
     supabase.from('activities').select('*').eq('user_id', user.id).eq('hidden', false).order('start_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -44,6 +45,19 @@ export default async function DashboardPage({
   const weekTime = weekRuns.reduce((s, a) => s + (a.moving_time_s ?? 0), 0)
   const weekPaces = weekRuns.filter(a => a.avg_pace_s_per_km).map(a => a.avg_pace_s_per_km!)
   const weekAvgPace = weekPaces.length ? Math.round(weekPaces.reduce((s, p) => s + p, 0) / weekPaces.length) : null
+
+  // "Next workout" = nearest planned workout by actual date (not earliest week).
+  // Prefer upcoming (today or later); if none, fall back to the most overdue one.
+  let nextWorkout: NonNullable<typeof plannedWorkouts>[number] | null = null
+  if (activePlan && plannedWorkouts?.length) {
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    const dated = plannedWorkouts
+      .map(w => ({ w, date: computeWorkoutDate(activePlan.created_at, w.week_number, w.day_of_week) }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+    const upcoming = dated.find(d => d.date.getTime() >= startOfToday.getTime())
+    nextWorkout = (upcoming ?? dated[dated.length - 1]).w
+  }
 
   // Parse pending adaptation suggestion (skip if applied or dismissed)
   let pendingAdaptation: { id: string; result: AdaptationResult } | null = null
