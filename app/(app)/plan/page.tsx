@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PlanParamsEditor from '@/components/PlanParamsEditor'
 import type { TrainingPlan } from '@/types/database'
 
 const DISTANCE_LABELS: Record<string, string> = {
@@ -21,9 +22,6 @@ export default function PlanPage() {
   const [plan, setPlan] = useState<TrainingPlan | null>(null)
   const [archivedPlans, setArchivedPlans] = useState<TrainingPlan[]>([])
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [progress, setProgress] = useState('')
   const [showArchive, setShowArchive] = useState(false)
 
   useEffect(() => {
@@ -42,45 +40,6 @@ export default function PlanPage() {
     setPlan(active)
     setArchivedPlans(archived ?? [])
     setLoading(false)
-  }
-
-  async function generatePlan() {
-    setGenerating(true)
-    setError(null)
-    setProgress('Claude analizuje Twój profil...')
-
-    const messages = [
-      'Claude analizuje Twój profil...',
-      'Projektowanie tygodni treningowych...',
-      'Budowanie faz: Baza → Budowanie → Szczyt → Tapering...',
-      'Dopasowywanie tempa i dystansów...',
-      'Finalizowanie planu...',
-    ]
-    let i = 0
-    const interval = setInterval(() => {
-      i = (i + 1) % messages.length
-      setProgress(messages[i])
-    }, 3000)
-
-    try {
-      const res = await fetch('/api/generate-plan', { method: 'POST' })
-      const data = await res.json()
-      clearInterval(interval)
-
-      if (!res.ok) {
-        setError(data.error ?? 'Błąd generowania planu')
-        setGenerating(false)
-        return
-      }
-
-      await loadPlan()
-      setGenerating(false)
-      setProgress('')
-    } catch {
-      clearInterval(interval)
-      setError('Błąd połączenia z serwerem')
-      setGenerating(false)
-    }
   }
 
   if (loading) {
@@ -103,52 +62,32 @@ export default function PlanPage() {
       </div>
 
       {/* No plan yet */}
-      {!plan && !generating && (
-        <div className="rounded-2xl p-10 flex flex-col items-center text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="text-5xl mb-6">🤖</div>
-          <h2 className="text-3xl font-black mb-3" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            Brak aktywnego planu
-          </h2>
-          <p className="text-sm mb-8 max-w-sm" style={{ color: 'var(--text-2)' }}>
-            Claude przeanalizuje Twój profil biegacza i wygeneruje spersonalizowany plan treningowy.
-          </p>
-          {error && (
-            <p className="text-sm rounded-xl px-4 py-3 mb-4 w-full max-w-sm"
-              style={{ background: 'var(--orange-dim)', color: 'var(--orange)' }}>
-              {error}
+      {!plan && (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-2xl p-10 flex flex-col items-center text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="text-5xl mb-6">🤖</div>
+            <h2 className="text-3xl font-black mb-3" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
+              Brak aktywnego planu
+            </h2>
+            <p className="text-sm max-w-sm" style={{ color: 'var(--text-2)' }}>
+              Ustaw parametry poniżej i wygeneruj spersonalizowany plan treningowy.
             </p>
-          )}
-          <button onClick={generatePlan}
-            className="rounded-xl px-8 py-4 text-base font-black uppercase tracking-widest transition-all hover:-translate-y-0.5"
-            style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', background: 'var(--green)', color: '#000' }}>
-            Wygeneruj mój plan →
-          </button>
-        </div>
-      )}
-
-      {/* Generating */}
-      {generating && (
-        <div className="rounded-2xl p-10 flex flex-col items-center text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--green)' }}>
-          <div className="text-5xl mb-6 animate-pulse">⚡</div>
-          <h2 className="text-3xl font-black mb-3" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
-            Generowanie planu...
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-2)' }}>{progress}</p>
-          <div className="mt-6 w-48 h-1 rounded-full overflow-hidden" style={{ background: 'var(--surface3)' }}>
-            <div className="h-1 rounded-full animate-pulse" style={{ background: 'var(--green)', width: '60%' }} />
           </div>
+          <PlanParamsEditor hasPlan={false} onRebuilt={loadPlan} />
         </div>
       )}
 
       {/* Plan exists */}
-      {plan && !generating && (
-        <PlanView plan={plan} onRegenerate={generatePlan} onCalendar={() => router.push('/calendar')} />
+      {plan && (
+        <div className="flex flex-col gap-6">
+          <PlanView plan={plan} onCalendar={() => router.push('/calendar')} />
+          <PlanParamsEditor hasPlan={true} onRebuilt={loadPlan} />
+        </div>
       )}
 
       {/* Archived plans */}
-      {archivedPlans.length > 0 && !generating && (
+      {archivedPlans.length > 0 && (
         <div className="mt-6">
           <button
             onClick={() => setShowArchive(v => !v)}
@@ -378,9 +317,8 @@ function GarminSyncModal({ planId, onClose }: { planId: string; onClose: () => v
 
 // ─── Plan View ────────────────────────────────────────────────────────────────
 
-function PlanView({ plan, onRegenerate, onCalendar }: {
+function PlanView({ plan, onCalendar }: {
   plan: TrainingPlan
-  onRegenerate: () => void
   onCalendar: () => void
 }) {
   const [showGarminSync, setShowGarminSync] = useState(false)
@@ -419,11 +357,6 @@ function PlanView({ plan, onRegenerate, onCalendar }: {
             className="rounded-xl px-5 py-2.5 text-sm font-semibold transition-all flex items-center gap-1.5 hover:-translate-y-0.5"
             style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
             ⌚ Sync Garmin
-          </button>
-          <button onClick={onRegenerate}
-            className="rounded-xl px-5 py-2.5 text-sm font-semibold transition-all"
-            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-            Regeneruj
           </button>
         </div>
       </div>

@@ -142,6 +142,14 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    // rebuild=true → keep completed/skipped workouts (and their linked Strava
+    // activities), regenerate only the remaining planned ones in place.
+    let rebuild = false
+    try {
+      const body = await request.json()
+      rebuild = body?.rebuild === true
+    } catch { /* no body → fresh generation */ }
+
     // Fetch runner profile
     const { data: profile, error: profileError } = await supabase
       .from('runner_profiles')
@@ -169,12 +177,26 @@ export async function POST(request: Request) {
       additional_goal:  profile.additional_goal,
     }
 
-    // Archive existing active plan
-    await supabase
+    // Identify the existing active plan (needed for rebuild)
+    const { data: existingPlan } = await supabase
       .from('training_plans')
-      .update({ status: 'archived' })
+      .select('id')
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Workouts the user already engaged with — preserved on rebuild
+    let lockedCount = 0
+    if (rebuild && existingPlan) {
+      const { count } = await supabase
+        .from('workouts')
+        .select('id', { count: 'exact', head: true })
+        .eq('plan_id', existingPlan.id)
+        .in('status', ['completed', 'skipped'])
+      lockedCount = count ?? 0
+    }
 
     // Call Claude (Haiku — szybszy, mieści się w 60s limicie Vercel Hobby)
     const message = await getAnthropic().messages.create({
@@ -192,6 +214,75 @@ export async function POST(request: Request) {
     }
 
     const planJson: PlanJson = JSON.parse(jsonMatch[0])
+
+    // ── REBUILD: keep completed/skipped workouts, replace only the planned ──
+    if (rebuild && existingPlan) {
+      // Which (week, day) slots are locked by user progress?
+      const { data: keep } = await supabase
+        .from('workouts')
+        .select('week_number, day_of_week')
+        .eq('plan_id', existingPlan.id)
+        .in('status', ['completed', 'skipped'])
+
+      const lockedSlots = new Set((keep ?? []).map(w => `${w.week_number}:${w.day_of_week}`))
+
+      // Remove only the still-planned workouts (preserves completed + their
+      // matched_workout_id links from activities).
+      await supabase
+        .from('workouts')
+        .delete()
+        .eq('plan_id', existingPlan.id)
+        .eq('status', 'planned')
+
+      // Insert freshly generated workouts, skipping any locked slot
+      const newRows = planJson.weeks.flatMap(week =>
+        week.workouts
+          .filter(w => !lockedSlots.has(`${week.week_number}:${w.day}`))
+          .map((w: PlanWorkout) => ({
+            plan_id: existingPlan.id,
+            user_id: user.id,
+            week_number: week.week_number,
+            day_of_week: w.day,
+            workout_type: w.workout_type,
+            title: w.title,
+            description: w.description,
+            distance_km: w.distance_km ?? null,
+            target_pace: w.target_pace ?? null,
+            duration_minutes: w.duration_minutes ?? null,
+            phase: week.phase,
+            status: 'planned',
+          }))
+      )
+
+      if (newRows.length > 0) await supabase.from('workouts').insert(newRows)
+
+      // Refresh plan metadata + name
+      await supabase
+        .from('training_plans')
+        .update({
+          plan_name: planJson.plan_name,
+          race_distance: profile.race_distance,
+          race_date: profile.race_date ?? null,
+          total_weeks: planJson.total_weeks,
+          plan_json: planJson as unknown as import('@/types/database').Json,
+        })
+        .eq('id', existingPlan.id)
+
+      return NextResponse.json({
+        plan_id: existingPlan.id,
+        plan_name: planJson.plan_name,
+        total_weeks: planJson.total_weeks,
+        rebuilt: true,
+        kept_workouts: lockedCount,
+      })
+    }
+
+    // ── FRESH: archive old plan, create a brand new one ────────────────────
+    await supabase
+      .from('training_plans')
+      .update({ status: 'archived' })
+      .eq('user_id', user.id)
+      .eq('status', 'active')
 
     // Save training plan
     const { data: savedPlan, error: planError } = await supabase
