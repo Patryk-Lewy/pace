@@ -9,8 +9,9 @@ export type ShareCardData = {
   distanceText: string      // e.g. "10.24"
   pace: string | null       // e.g. "5:12"
   duration: string | null   // e.g. "52:30"
-  rpe: number | null
-  heartrate: number | null
+  heartrate: number | null  // avg bpm
+  maxHeartrate: number | null
+  elevation: number | null  // total elevation gain, m
   dateLabel: string         // e.g. "28 maja 2026"
   weekLabel: string | null  // e.g. "Tydzień 4"
   accentColor: string       // hex, e.g. "#00e676"
@@ -90,71 +91,82 @@ function drawCard(ctx: CanvasRenderingContext2D, d: ShareCardData) {
 
   // Hero distance number
   ctx.fillStyle = WHITE
-  ctx.font = '900 380px "Arial Black", Impact, sans-serif'
-  ctx.fillText(d.distanceText, CARD_W / 2, 880)
+  ctx.font = '900 360px "Arial Black", Impact, sans-serif'
+  ctx.fillText(d.distanceText, CARD_W / 2, 840)
 
   // KM label
   ctx.fillStyle = d.accentColor
-  ctx.font = '900 90px "Arial Black", Impact, sans-serif'
-  drawSpaced(ctx, 'KM', CARD_W / 2, 1010, 10)
+  ctx.font = '900 84px "Arial Black", Impact, sans-serif'
+  drawSpaced(ctx, 'KILOMETRÓW', CARD_W / 2, 960, 8)
 
-  // Stats row — pick up to 3
-  type Stat = { label: string; value: string }
+  // Workout title (moved up, under hero)
+  ctx.fillStyle = WHITE
+  ctx.font = '700 52px Arial, sans-serif'
+  ctx.fillText(truncate(ctx, d.title, CARD_W - 160), CARD_W / 2, 1080)
+
+  // Date meta
+  ctx.fillStyle = MUTED
+  ctx.font = '400 36px Arial, sans-serif'
+  const meta = [d.weekLabel, d.dateLabel].filter(Boolean).join('  ·  ')
+  ctx.fillText(meta, CARD_W / 2, 1140)
+
+  // ── Garmin-style stat tiles (2×2 grid) ──
+  type Stat = { label: string; value: string; unit: string }
   const stats: Stat[] = []
-  if (d.pace) stats.push({ label: 'TEMPO', value: `${d.pace}/km` })
-  if (d.duration) stats.push({ label: 'CZAS', value: d.duration })
-  if (d.rpe !== null) stats.push({ label: 'WYSIŁEK', value: `${d.rpe}/10` })
-  else if (d.heartrate) stats.push({ label: 'TĘTNO', value: `${d.heartrate}` })
-  const shown = stats.slice(0, 3)
+  if (d.duration) stats.push({ label: 'CZAS', value: d.duration, unit: '' })
+  if (d.pace) stats.push({ label: 'ŚR. TEMPO', value: d.pace, unit: '/km' })
+  if (d.heartrate) stats.push({ label: 'ŚR. TĘTNO', value: `${d.heartrate}`, unit: 'bpm' })
+  if (d.maxHeartrate) stats.push({ label: 'MAX TĘTNO', value: `${d.maxHeartrate}`, unit: 'bpm' })
+  if (d.elevation !== null && d.elevation >= 1) stats.push({ label: 'PRZEWYŻSZENIE', value: `${Math.round(d.elevation)}`, unit: 'm' })
+  const shown = stats.slice(0, 4)
 
-  // Divider
-  ctx.strokeStyle = '#222222'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(120, 1180)
-  ctx.lineTo(CARD_W - 120, 1180)
-  ctx.stroke()
+  const gridTop = 1240
+  const gap = 28
+  const sideMargin = 90
+  const tileW = (CARD_W - sideMargin * 2 - gap) / 2
+  const tileH = 230
 
-  const rowY = 1320
-  const colW = (CARD_W - 240) / shown.length
   shown.forEach((s, i) => {
-    const cx = 120 + colW * i + colW / 2
+    const col = i % 2
+    const row = Math.floor(i / 2)
+    const x = sideMargin + col * (tileW + gap)
+    const y = gridTop + row * (tileH + gap)
+
+    // tile background
+    ctx.fillStyle = '#141414'
+    roundRect(ctx, x, y, tileW, tileH, 28)
+    ctx.fill()
+    ctx.strokeStyle = '#242424'
+    ctx.lineWidth = 2
+    roundRect(ctx, x, y, tileW, tileH, 28)
+    ctx.stroke()
+
+    const cx = x + tileW / 2
+
+    // label
     ctx.fillStyle = MUTED
-    ctx.font = '700 34px Arial, sans-serif'
-    drawSpaced(ctx, s.label, cx, rowY - 30, 4)
+    ctx.font = '700 30px Arial, sans-serif'
+    drawSpaced(ctx, s.label, cx, y + 62, 3)
+
+    // value
     ctx.fillStyle = WHITE
-    ctx.font = '900 90px "Arial Black", Impact, sans-serif'
-    ctx.fillText(s.value, cx, rowY + 70)
+    ctx.font = '900 96px "Arial Black", Impact, sans-serif'
+    ctx.fillText(s.value, cx, y + 158)
+
+    // unit
+    if (s.unit) {
+      ctx.fillStyle = MUTED
+      ctx.font = '400 34px Arial, sans-serif'
+      ctx.fillText(s.unit, cx, y + 200)
+    }
   })
 
-  // Divider
-  ctx.beginPath()
-  ctx.moveTo(120, 1480)
-  ctx.lineTo(CARD_W - 120, 1480)
-  ctx.stroke()
-
-  // Workout title
-  ctx.fillStyle = WHITE
-  ctx.font = '700 56px Arial, sans-serif'
-  ctx.fillText(truncate(ctx, d.title, CARD_W - 160), CARD_W / 2, 1600)
-
-  // Week + date meta
-  ctx.fillStyle = MUTED
-  ctx.font = '400 38px Arial, sans-serif'
-  const meta = [d.weekLabel, d.dateLabel].filter(Boolean).join('  ·  ')
-  ctx.fillText(meta, CARD_W / 2, 1670)
-
-  // Footer: powered by strava (if applicable) + url
-  let footerY = 1800
+  // Footer: discreet Strava attribution (required by Strava brand guidelines)
   if (d.fromStrava) {
     ctx.fillStyle = STRAVA
-    ctx.font = '700 34px Arial, sans-serif'
-    ctx.fillText('⚡ Powered by Strava', CARD_W / 2, footerY)
-    footerY += 56
+    ctx.font = '700 32px Arial, sans-serif'
+    ctx.fillText('Powered by Strava', CARD_W / 2, CARD_H - 70)
   }
-  ctx.fillStyle = GREEN
-  ctx.font = '700 36px Arial, sans-serif'
-  drawSpaced(ctx, 'PACE-MUREX.VERCEL.APP', CARD_W / 2, footerY, 4)
 }
 
 function truncate(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
