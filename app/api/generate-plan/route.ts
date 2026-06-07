@@ -12,6 +12,22 @@ function getAnthropic() {
   return new Anthropic({ apiKey: key })
 }
 
+/** Normalize any day representation Claude might return to the canonical
+ *  short form (mon/tue/.../sun) used everywhere else in the app. */
+function normalizeDay(raw: string): string {
+  const d = (raw ?? '').trim().toLowerCase()
+  const map: Record<string, string> = {
+    monday: 'mon', mon: 'mon', poniedzialek: 'mon', 'poniedziałek': 'mon',
+    tuesday: 'tue', tue: 'tue', wtorek: 'tue',
+    wednesday: 'wed', wed: 'wed', sroda: 'wed', 'środa': 'wed',
+    thursday: 'thu', thu: 'thu', czwartek: 'thu',
+    friday: 'fri', fri: 'fri', piatek: 'fri', 'piątek': 'fri',
+    saturday: 'sat', sat: 'sat', sobota: 'sat',
+    sunday: 'sun', sun: 'sun', niedziela: 'sun',
+  }
+  return map[d] ?? d.slice(0, 3)
+}
+
 const DISTANCE_WEEKS: Record<string, number> = {
   '5km': 6,
   '10km': 8,
@@ -237,12 +253,12 @@ export async function POST(request: Request) {
       // Insert freshly generated workouts, skipping any locked slot
       const newRows = planJson.weeks.flatMap(week =>
         week.workouts
-          .filter(w => !lockedSlots.has(`${week.week_number}:${w.day}`))
+          .filter(w => !lockedSlots.has(`${week.week_number}:${normalizeDay(w.day)}`))
           .map((w: PlanWorkout) => ({
             plan_id: existingPlan.id,
             user_id: user.id,
             week_number: week.week_number,
-            day_of_week: w.day,
+            day_of_week: normalizeDay(w.day),
             workout_type: w.workout_type,
             title: w.title,
             description: w.description,
@@ -309,7 +325,7 @@ export async function POST(request: Request) {
         plan_id: savedPlan.id,
         user_id: user.id,
         week_number: week.week_number,
-        day_of_week: w.day,
+        day_of_week: normalizeDay(w.day),
         workout_type: w.workout_type,
         title: w.title,
         description: w.description,
