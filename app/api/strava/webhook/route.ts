@@ -37,97 +37,21 @@ export async function POST(request: NextRequest) {
     // comes from Strava's servers (no user session / cookies)
     const supabase = createServiceClient()
 
-    // Find user by strava athlete id
-    const { data: tokenRow } = await supabase
+    // Find ALL users linked to this Strava athlete. Usually one, but the same
+    // Strava account can be connected to multiple PACE accounts — handle each
+    // (using .single() here would throw 406 and drop the whole webhook).
+    const { data: tokenRows } = await supabase
       .from('strava_tokens')
       .select('user_id')
       .eq('strava_athlete_id', stravaAthleteId)
-      .single()
 
-    if (!tokenRow) return NextResponse.json({ ok: true })
+    if (!tokenRows?.length) return NextResponse.json({ ok: true })
 
-    const accessToken = await getValidAccessToken(supabase, tokenRow.user_id)
-    if (!accessToken) return NextResponse.json({ ok: true })
-
-    // Fetch full activity from Strava
-    const actRes = await fetch(
-      `https://www.strava.com/api/v3/activities/${stravaActivityId}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    )
-    if (!actRes.ok) return NextResponse.json({ ok: true })
-    const act = await actRes.json()
-
-    if (act.type !== 'Run') return NextResponse.json({ ok: true })
-
-    const paceSecPerKm = speedToSecPerKm(act.average_speed)
-
-    // Save activity
-    const { data: savedActivity } = await supabase
-      .from('activities')
-      .upsert({
-        user_id: tokenRow.user_id,
-        strava_id: act.id,
-        strava_type: act.type,
-        name: act.name,
-        start_date: act.start_date,
-        distance_m: act.distance,
-        moving_time_s: act.moving_time,
-        elapsed_time_s: act.elapsed_time,
-        avg_pace_s_per_km: paceSecPerKm,
-        avg_heartrate: act.average_heartrate ?? null,
-        max_heartrate: act.max_heartrate ?? null,
-        total_elevation: act.total_elevation_gain,
-      })
-      .select()
-      .single()
-
-    if (!savedActivity) return NextResponse.json({ ok: true })
-
-    // Skip tiny runs (GPS noise) — saved, but not matched or commented
-    if ((act.distance ?? 0) < MIN_RUN_DISTANCE_M) return NextResponse.json({ ok: true })
-
-    // Match by DATE: find the planned workout scheduled for this activity's day
-    const matchedWorkout = await findWorkoutForActivityDate(supabase, tokenRow.user_id, act.start_date)
-
-    if (matchedWorkout) {
-      await supabase
-        .from('workouts')
-        .update({ status: 'completed', completed_at: act.start_date })
-        .eq('id', matchedWorkout.id)
-
-      await supabase
-        .from('activities')
-        .update({ matched_workout_id: matchedWorkout.id })
-        .eq('id', savedActivity.id)
-
-      const comment = await generateWorkoutComment({
-        workoutTitle: matchedWorkout.title,
-        plannedDistanceKm: matchedWorkout.distance_km,
-        plannedPace: matchedWorkout.target_pace,
-        actualDistanceM: act.distance,
-        actualPaceSecPerKm: paceSecPerKm,
-        heartrate: act.average_heartrate ?? null,
-      })
-
-      await supabase
-        .from('activities')
-        .update({ ai_comment: comment, ai_analyzed_at: new Date().toISOString() })
-        .eq('id', savedActivity.id)
-
-      // Trigger plan adaptation (fire-and-forget)
-      const { data: activePlan } = await supabase
-        .from('training_plans')
-        .select('id')
-        .eq('user_id', tokenRow.user_id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (activePlan) {
-        analyzeAndAdapt(supabase, tokenRow.user_id, activePlan.id).catch(err =>
-          console.error('[ADAPTATION] Background analysis failed:', err)
-        )
+    for (const { user_id } of tokenRows) {
+      try {
+        await processActivityForUser(supabase, user_id, stravaActivityId)
+      } catch (err) {
+        console.error(`[WEBHOOK] Failed for user ${user_id}:`, err)
       }
     }
 
@@ -135,5 +59,96 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Webhook error:', err)
     return NextResponse.json({ ok: true })
+  }
+}
+
+type ServiceClient = ReturnType<typeof createServiceClient>
+
+/** Fetch the activity from Strava and ingest it for a single PACE user. */
+async function processActivityForUser(
+  supabase: ServiceClient,
+  userId: string,
+  stravaActivityId: number,
+) {
+  const accessToken = await getValidAccessToken(supabase, userId)
+  if (!accessToken) return
+
+  const actRes = await fetch(
+    `https://www.strava.com/api/v3/activities/${stravaActivityId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+  if (!actRes.ok) return
+  const act = await actRes.json()
+
+  if (act.type !== 'Run') return
+
+  const paceSecPerKm = speedToSecPerKm(act.average_speed)
+
+  const { data: savedActivity } = await supabase
+    .from('activities')
+    .upsert({
+      user_id: userId,
+      strava_id: act.id,
+      strava_type: act.type,
+      name: act.name,
+      start_date: act.start_date,
+      distance_m: act.distance,
+      moving_time_s: act.moving_time,
+      elapsed_time_s: act.elapsed_time,
+      avg_pace_s_per_km: paceSecPerKm,
+      avg_heartrate: act.average_heartrate ?? null,
+      max_heartrate: act.max_heartrate ?? null,
+      total_elevation: act.total_elevation_gain,
+    }, { onConflict: 'strava_id', ignoreDuplicates: false })
+    .select()
+    .single()
+
+  if (!savedActivity) return
+
+  // Skip tiny runs (GPS noise) — saved, but not matched or commented
+  if ((act.distance ?? 0) < MIN_RUN_DISTANCE_M) return
+
+  // Match by DATE: find the planned workout scheduled for this activity's day
+  const matchedWorkout = await findWorkoutForActivityDate(supabase, userId, act.start_date)
+  if (!matchedWorkout) return
+
+  await supabase
+    .from('workouts')
+    .update({ status: 'completed', completed_at: act.start_date })
+    .eq('id', matchedWorkout.id)
+
+  await supabase
+    .from('activities')
+    .update({ matched_workout_id: matchedWorkout.id })
+    .eq('id', savedActivity.id)
+
+  const comment = await generateWorkoutComment({
+    workoutTitle: matchedWorkout.title,
+    plannedDistanceKm: matchedWorkout.distance_km,
+    plannedPace: matchedWorkout.target_pace,
+    actualDistanceM: act.distance,
+    actualPaceSecPerKm: paceSecPerKm,
+    heartrate: act.average_heartrate ?? null,
+  })
+
+  await supabase
+    .from('activities')
+    .update({ ai_comment: comment, ai_analyzed_at: new Date().toISOString() })
+    .eq('id', savedActivity.id)
+
+  // Trigger plan adaptation (fire-and-forget)
+  const { data: activePlan } = await supabase
+    .from('training_plans')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (activePlan) {
+    analyzeAndAdapt(supabase, userId, activePlan.id).catch(err =>
+      console.error('[ADAPTATION] Background analysis failed:', err)
+    )
   }
 }
