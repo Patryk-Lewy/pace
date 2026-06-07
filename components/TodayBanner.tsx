@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { computeWorkoutDate } from '@/lib/workout-matching'
 import type { Workout } from '@/types/database'
-
-const DAY_MAP: Record<number, string> = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 0: 'sun' }
 
 const TYPE_EMOJI: Record<string, string> = {
   easy_run: '🏃', long_run: '🏃', tempo: '⚡', intervals: '🔥', rest: '😴',
+}
+
+function dateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default function TodayBanner() {
@@ -17,13 +23,12 @@ export default function TodayBanner() {
 
   useEffect(() => {
     async function check() {
-      const today = DAY_MAP[new Date().getDay()]
       const supabase = createClient()
 
       // Get active plan
       const { data: plan } = await supabase
         .from('training_plans')
-        .select('id')
+        .select('id, created_at')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -31,18 +36,19 @@ export default function TodayBanner() {
 
       if (!plan) { setWorkout(null); return }
 
-      // Find today's workout in the earliest unstarted week
-      const { data: w } = await supabase
+      // All planned workouts; match the one whose actual calendar date is today
+      const { data: workouts } = await supabase
         .from('workouts')
         .select('*')
         .eq('plan_id', plan.id)
-        .eq('day_of_week', today)
-        .in('status', ['planned'])
-        .order('week_number')
-        .limit(1)
-        .maybeSingle()
+        .eq('status', 'planned')
 
-      setWorkout(w ?? null)
+      const todayKey = dateKey(new Date())
+      const todays = (workouts ?? []).find(w =>
+        dateKey(computeWorkoutDate(plan.created_at, w.week_number, w.day_of_week)) === todayKey
+      )
+
+      setWorkout(todays ?? null)
     }
     check()
   }, [])
