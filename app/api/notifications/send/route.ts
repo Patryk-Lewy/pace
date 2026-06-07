@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import webpush from 'web-push'
 import { createServiceClient } from '@/lib/supabase/service'
+import { computeWorkoutDate } from '@/lib/workout-matching'
 import type { PushSubscriptionRow } from '@/types/database'
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 webpush.setVapidDetails(
   process.env.VAPID_SUBJECT!,
@@ -25,14 +30,34 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const today = DAY_MAP[new Date().getDay()]
 
-  const { data: workouts } = await supabase
+  // Active plans only (ignore archived). created_at needed for date math.
+  const { data: activePlans } = await supabase
+    .from('training_plans')
+    .select('id, created_at')
+    .eq('status', 'active')
+
+  if (!activePlans?.length) {
+    return NextResponse.json({ sent: 0, message: 'No active plans' })
+  }
+  const planCreatedById = new Map(activePlans.map(p => [p.id, p.created_at]))
+
+  const { data: allWorkouts } = await supabase
     .from('workouts')
-    .select('id, user_id, title, workout_type, distance_km, target_pace, duration_minutes')
+    .select('id, user_id, plan_id, week_number, day_of_week, title, workout_type, distance_km, target_pace, duration_minutes')
+    .in('plan_id', activePlans.map(p => p.id))
     .eq('day_of_week', today)
     .eq('status', 'planned')
     .neq('workout_type', 'rest')
 
-  if (!workouts?.length) {
+  // Keep only those whose ACTUAL calendar date is today
+  const todayKey = dateKey(new Date())
+  const workouts = (allWorkouts ?? []).filter(w => {
+    const created = planCreatedById.get(w.plan_id)
+    if (!created) return false
+    return dateKey(computeWorkoutDate(created, w.week_number, w.day_of_week)) === todayKey
+  })
+
+  if (!workouts.length) {
     return NextResponse.json({ sent: 0, message: 'No workouts today' })
   }
 

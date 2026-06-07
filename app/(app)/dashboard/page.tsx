@@ -24,7 +24,6 @@ export default async function DashboardPage({
   const [
     { data: profile },
     { data: activePlan },
-    { data: plannedWorkouts },
     { data: stravaToken },
     { data: recentActivity },
     { data: adaptationComment },
@@ -32,12 +31,17 @@ export default async function DashboardPage({
   ] = await Promise.all([
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
-    supabase.from('workouts').select('*').eq('user_id', user.id).eq('status', 'planned').neq('workout_type', 'rest'),
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
     supabase.from('activities').select('*').eq('user_id', user.id).eq('hidden', false).order('start_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('activities').select('distance_m, moving_time_s, avg_pace_s_per_km').eq('user_id', user.id).eq('hidden', false).gte('start_date', weekAgoISO),
   ])
+
+  // Planned workouts — scoped to the ACTIVE plan only (not archived plans)
+  const { data: plannedWorkouts } = activePlan
+    ? await supabase.from('workouts').select('*')
+        .eq('plan_id', activePlan.id).eq('status', 'planned').neq('workout_type', 'rest')
+    : { data: null }
 
   // Compute weekly summary stats
   const weekRuns = weekActivities ?? []
