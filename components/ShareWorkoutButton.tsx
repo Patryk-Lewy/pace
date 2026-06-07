@@ -176,7 +176,7 @@ function truncate(ctx: CanvasRenderingContext2D, text: string, maxW: number): st
   return t + '…'
 }
 
-export default function ShareWorkoutButton({ data }: { data: ShareCardData }) {
+export default function ShareWorkoutButton({ data, compact = false }: { data: ShareCardData; compact?: boolean }) {
   const [open, setOpen] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [blob, setBlob] = useState<Blob | null>(null)
@@ -234,11 +234,20 @@ export default function ShareWorkoutButton({ data }: { data: ShareCardData }) {
 
   return (
     <>
-      <button onClick={generate} disabled={generating}
-        className="w-full rounded-xl py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-        {generating ? 'Generuję...' : '📸 Udostępnij wynik'}
-      </button>
+      {compact ? (
+        <button onClick={generate} disabled={generating}
+          title="Udostępnij wynik"
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-all"
+          style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
+          {generating ? '...' : '📸'}
+        </button>
+      ) : (
+        <button onClick={generate} disabled={generating}
+          className="w-full rounded-xl py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+          {generating ? 'Generuję...' : '📸 Udostępnij wynik'}
+        </button>
+      )}
 
       {open && imageUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"

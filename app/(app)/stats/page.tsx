@@ -6,7 +6,29 @@ import { formatPace, formatDuration } from '@/lib/strava'
 import { KmBarChart, PaceLineChart } from '@/components/ProgressCharts'
 import { estimateMaxHR, getZoneRanges, buildZoneDistribution, HR_ZONES } from '@/lib/heart-rate-zones'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
+import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
 import type { Activity, StravaToken } from '@/types/database'
+
+const RUN_EMOJI = '🏃'
+
+/** Build share-card data straight from a Strava activity (no plan workout). */
+function activityShareData(a: Activity, matchedTitle?: string): ShareCardData {
+  return {
+    title: matchedTitle ?? a.name ?? 'Bieg',
+    typeLabel: 'Bieg',
+    emoji: RUN_EMOJI,
+    distanceText: ((a.distance_m ?? 0) / 1000).toFixed(2),
+    pace: a.avg_pace_s_per_km ? formatPace(a.avg_pace_s_per_km) : null,
+    duration: a.moving_time_s ? formatDuration(a.moving_time_s) : null,
+    heartrate: a.avg_heartrate ? Math.round(a.avg_heartrate) : null,
+    maxHeartrate: a.max_heartrate ? Math.round(a.max_heartrate) : null,
+    elevation: a.total_elevation ?? null,
+    dateLabel: new Date(a.start_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }),
+    weekLabel: null,
+    accentColor: '#00e676',
+    fromStrava: true,
+  }
+}
 
 type WeekGroup = { label: string; activities: Activity[]; totalKm: number; totalTime: number; avgPace: number }
 
@@ -275,18 +297,21 @@ function ActivityRow({ activity: a, workouts, onChanged }: {
         </div>
       )}
 
-      {/* Assignment + manage */}
+      {/* Assignment + actions */}
       <div className="flex items-center justify-between gap-3 mt-2">
         <p className="text-xs" style={{ color: matched ? 'var(--green)' : 'var(--text-3)' }}>
           {matched
             ? `📋 ${matched.title} (T${matched.week_number} · ${DAY_SHORT[matched.day_of_week] ?? ''})`
             : '○ Nieprzypisany do planu'}
         </p>
-        <button onClick={() => setManageOpen(true)}
-          className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-all shrink-0"
-          style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
-          Zarządzaj
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <ShareWorkoutButton data={activityShareData(a, matched?.title)} compact />
+          <button onClick={() => setManageOpen(true)}
+            className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-all"
+            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
+            Zarządzaj
+          </button>
+        </div>
       </div>
 
       {manageOpen && (
