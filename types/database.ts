@@ -30,9 +30,10 @@ export type Database = {
           max_heartrate: number | null
           moving_time_s: number | null
           name: string
+          source: string
           start_date: string
-          strava_id: number
-          strava_type: string
+          strava_id: number | null
+          strava_type: string | null
           total_elevation: number | null
           user_id: string
         }
@@ -50,9 +51,10 @@ export type Database = {
           max_heartrate?: number | null
           moving_time_s?: number | null
           name: string
+          source?: string
           start_date: string
-          strava_id: number
-          strava_type: string
+          strava_id?: number | null
+          strava_type?: string | null
           total_elevation?: number | null
           user_id: string
         }
@@ -70,9 +72,10 @@ export type Database = {
           max_heartrate?: number | null
           moving_time_s?: number | null
           name?: string
+          source?: string
           start_date?: string
-          strava_id?: number
-          strava_type?: string
+          strava_id?: number | null
+          strava_type?: string | null
           total_elevation?: number | null
           user_id?: string
         }
