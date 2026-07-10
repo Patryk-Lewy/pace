@@ -211,7 +211,7 @@ export default function WorkoutDetailPage() {
             </h1>
             <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
               style={{ background: meta.bg, color: meta.color }}>
-              {meta.emoji} {meta.label}
+              {meta.emoji} {meta.label}{workout.workout_type !== 'rest' ? ` · ${meta.zone}` : ''}
             </span>
           </div>
 

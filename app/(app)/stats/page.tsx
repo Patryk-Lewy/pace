@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatPace, formatDuration } from '@/lib/strava'
 import { KmBarChart, PaceLineChart } from '@/components/ProgressCharts'
-import { estimateMaxHR, getZoneRanges, buildZoneDistribution, HR_ZONES } from '@/lib/heart-rate-zones'
+import { estimateMaxHR, getZoneRanges, buildZoneDistribution } from '@/lib/heart-rate-zones'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
 import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
 import type { Activity, StravaToken } from '@/types/database'
@@ -119,8 +119,11 @@ export default function StatsPage() {
   )
 
   const weeks = groupByWeek(activities)
-  const totalKm = activities.reduce((s, a) => s + (a.distance_m ?? 0) / 1000, 0)
   const totalRuns = activities.length
+  const cutoff30 = Date.now() - 30 * 86_400_000
+  const km30 = activities
+    .filter(a => new Date(a.start_date).getTime() >= cutoff30)
+    .reduce((s, a) => s + (a.distance_m ?? 0) / 1000, 0)
 
   return (
     <div className="animate-fade-up">
@@ -172,19 +175,18 @@ export default function StatsPage() {
       {/* Has data (Strava connected or manual GPS runs) */}
       {(token || activities.length > 0) && (
         <>
-          {/* Summary */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-            <BigStat label="Łączny dystans" value={totalKm.toFixed(0)} unit="km" accent />
-            <BigStat label="Liczba biegów" value={String(totalRuns)} unit="biegów" />
-            <BigStat label="Ostatni bieg"
-              value={activities[0] ? new Date(activities[0].start_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—'}
-              unit="" />
-            <BigStat label="Śr. tempo"
-              value={(() => {
-                const paces = activities.filter(a => a.avg_pace_s_per_km).map(a => a.avg_pace_s_per_km!)
-                return paces.length ? formatPace(Math.round(paces.reduce((s, p) => s + p, 0) / paces.length)) : '—'
-              })()}
-              unit="/km" />
+          {/* Two big totals */}
+          <div className="flex" style={{ gap: 10, marginBottom: 12 }}>
+            <div style={{ flex: 1, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Dystans / 30 dni</div>
+              <div className="cond" style={{ fontSize: 34, marginTop: 4, color: 'var(--green)' }}>
+                {km30.toFixed(0)}<span style={{ fontSize: 15, color: 'var(--text-2)' }}> km</span>
+              </div>
+            </div>
+            <div style={{ flex: 1, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Biegi</div>
+              <div className="cond" style={{ fontSize: 34, marginTop: 4 }}>{totalRuns}</div>
+            </div>
           </div>
 
           {/* Charts */}
@@ -424,85 +426,43 @@ function ManageActivityModal({ activity: a, workouts, onClose, onChanged }: {
   )
 }
 
-function BigStat({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
-  return (
-    <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>{label}</p>
-      <p className="text-3xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: accent ? 'var(--green)' : 'var(--text)' }}>
-        {value}
-      </p>
-      {unit && <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{unit}</p>}
-    </div>
-  )
-}
-
 function HRZonesSection({ activities }: { activities: Activity[] }) {
   const maxHR = estimateMaxHR(activities)
   const zones = getZoneRanges(maxHR)
   const distribution = buildZoneDistribution(activities, maxHR)
-  const totalWithHR = activities.filter(a => a.avg_heartrate).length
-  const totalDist = Object.values(distribution).reduce((s, v) => s + v, 0)
+  const total = Object.values(distribution).reduce((s, v) => s + v, 0)
+
+  const pct = (name: string) => (total > 0 ? ((distribution[name] ?? 0) / total) * 100 : 0)
+  const colorOf = (name: string) => zones.find(z => z.name === name)?.color ?? 'var(--text-3)'
+
+  // Grouped legend buckets (matches design: Z1-2 / Z3 / Z4-5)
+  const g12 = pct('Z1') + pct('Z2')
+  const g3 = pct('Z3')
+  const g45 = pct('Z4') + pct('Z5')
 
   return (
-    <div className="rounded-2xl overflow-hidden mb-6"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      {/* Header */}
-      <div className="px-5 py-3 flex items-center justify-between"
-        style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-          ♥ Strefy tętna
-        </span>
-        <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-          Max HR: {maxHR} bpm (na podstawie {activities.filter(a => a.max_heartrate).length} biegów)
-        </span>
-      </div>
+    <div style={{ borderRadius: 20, padding: 18, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12 }}>
+      <div className="kick" style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 14 }}>Rozkład stref tętna</div>
 
-      <div className="p-5 space-y-3">
+      {/* Segmented bar */}
+      <div className="flex" style={{ height: 12, borderRadius: 6, overflow: 'hidden', gap: 2 }}>
         {zones.map(z => {
-          const count = distribution[z.name] ?? 0
-          const pct = totalDist > 0 ? (count / totalDist) * 100 : 0
-
-          return (
-            <div key={z.name}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold w-6" style={{ color: z.color }}>{z.name}</span>
-                  <span className="text-xs" style={{ color: 'var(--text-2)' }}>{z.label}</span>
-                  <span className="text-xs" style={{ color: 'var(--text-3)' }}>{z.minBpm}–{z.maxBpm} bpm</span>
-                </div>
-                <span className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-                  {count > 0 ? `${count} bieg${count === 1 ? '' : 'ów'} · ${Math.round(pct)}%` : '—'}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full" style={{ background: 'var(--surface3)' }}>
-                <div
-                  className="h-1.5 rounded-full transition-all duration-700"
-                  style={{ width: `${pct}%`, background: z.color }}
-                />
-              </div>
-            </div>
-          )
+          const w = pct(z.name)
+          if (w <= 0) return null
+          return <div key={z.name} style={{ width: `${w}%`, background: z.color }} />
         })}
-
-        {totalWithHR < 3 && (
-          <p className="text-xs pt-2" style={{ color: 'var(--text-3)' }}>
-            Dane tętna z {totalWithHR} biegu/biegów. Więcej danych pozwoli dokładniej określić strefy.
-          </p>
-        )}
       </div>
 
-      {/* Zone legend */}
-      <div className="px-5 pb-4">
-        <div className="flex flex-wrap gap-2">
-          {HR_ZONES.map(z => (
-            <span key={z.name}
-              className="text-xs px-2 py-0.5 rounded-full font-medium"
-              style={{ background: `${z.color}22`, color: z.color, border: `1px solid ${z.color}44` }}>
-              {z.name} · {z.description.split(',')[0]}
-            </span>
-          ))}
-        </div>
+      {/* Grouped legend */}
+      <div className="flex justify-between" style={{ marginTop: 10, font: '600 11px var(--font-barlow)' }}>
+        <span style={{ color: colorOf('Z1') }}>Z1-2 {Math.round(g12)}%</span>
+        <span style={{ color: colorOf('Z3') }}>Z3 {Math.round(g3)}%</span>
+        <span style={{ color: colorOf('Z5') }}>Z4-5 {Math.round(g45)}%</span>
       </div>
+
+      <p style={{ font: '500 10px var(--font-barlow)', color: 'var(--text-3)', marginTop: 10 }}>
+        Max HR: {maxHR} bpm
+      </p>
     </div>
   )
 }

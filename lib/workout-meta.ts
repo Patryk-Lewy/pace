@@ -7,14 +7,16 @@ export type WorkoutMeta = {
   emoji: string
   zone: string
   label: string
+  /** Short chip label (e.g. "Easy", "Tempo", "Long"). */
+  short: string
 }
 
 export const TYPE_META: Record<string, WorkoutMeta> = {
-  easy_run:  { color: 'var(--blue)',   bg: 'var(--blue-dim)',   emoji: '🚶', zone: 'Z1–Z2', label: 'Easy Run' },
-  long_run:  { color: 'var(--blue)',   bg: 'var(--blue-dim)',   emoji: '🏃', zone: 'Z2',    label: 'Long Run' },
-  tempo:     { color: 'var(--orange)', bg: 'var(--orange-dim)', emoji: '⚡', zone: 'Z3',    label: 'Tempo Run' },
-  intervals: { color: 'var(--orange)', bg: 'var(--orange-dim)', emoji: '🔥', zone: 'Z4–Z5', label: 'Interwały' },
-  rest:      { color: 'var(--text-3)', bg: 'var(--surface3)',   emoji: '😴', zone: '—',     label: 'Odpoczynek' },
+  easy_run:  { color: 'var(--blue)',   bg: 'var(--blue-dim)',   emoji: '🚶', zone: 'Z1–Z2', label: 'Easy Run',   short: 'Easy' },
+  long_run:  { color: 'var(--blue)',   bg: 'var(--blue-dim)',   emoji: '🏃', zone: 'Z2',    label: 'Long Run',   short: 'Long' },
+  tempo:     { color: 'var(--orange)', bg: 'var(--orange-dim)', emoji: '⚡', zone: 'Z3',    label: 'Tempo Run',  short: 'Tempo' },
+  intervals: { color: 'var(--orange)', bg: 'var(--orange-dim)', emoji: '🔥', zone: 'Z4–Z5', label: 'Interwały',  short: 'Interwały' },
+  rest:      { color: 'var(--text-3)', bg: 'var(--surface3)',   emoji: '😴', zone: '—',     label: 'Odpoczynek', short: 'Rest' },
 }
 
 export function metaFor(type: string | null | undefined): WorkoutMeta {

@@ -133,7 +133,7 @@ export default function SettingsPage() {
       <div className="cond" style={{ fontSize: 30, marginBottom: 16 }}>Ustawienia</div>
 
       {/* Profile card */}
-      <div className="flex items-center" style={{ gap: 14, borderRadius: 20, padding: 18, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12 }}>
+      <Link href="/plan" className="press flex items-center" style={{ gap: 14, borderRadius: 20, padding: 18, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12, textDecoration: 'none' }}>
         <div className="flex items-center justify-center" style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--green-dim)', fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 22, color: 'var(--green)' }}>
           {nameCap.charAt(0)}
         </div>
@@ -141,7 +141,8 @@ export default function SettingsPage() {
           <div style={{ font: '700 16px var(--font-barlow)' }}>{nameCap}</div>
           <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</div>
         </div>
-      </div>
+        <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
+      </Link>
 
       {/* Profile stats */}
       <div className="flex" style={{ gap: 8, marginBottom: 12 }}>
@@ -214,6 +215,22 @@ export default function SettingsPage() {
                 Połącz →
               </a>
             )}
+          </div>
+
+          {/* Garmin Connect — sync lives on the Plan screen */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
+                style={{ background: 'var(--surface2)' }}>⌚</div>
+              <div>
+                <p className="text-sm font-semibold">Garmin Connect</p>
+                <p className="text-xs" style={{ color: 'var(--text-3)' }}>Nie połączono</p>
+              </div>
+            </div>
+            <Link href="/plan" className="text-xs font-black uppercase tracking-widest"
+              style={{ color: 'var(--green)', fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
+              Połącz
+            </Link>
           </div>
 
           {/* Push notifications */}

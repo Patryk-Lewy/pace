@@ -423,7 +423,7 @@ function WorkoutChip({ workout }: { workout: { workout_type: string; title: stri
   const meta = metaFor(workout.workout_type)
   return (
     <span style={{ font: '600 11px var(--font-barlow)', padding: '6px 11px', borderRadius: 12, background: meta.bg, color: meta.color }}>
-      {workout.title}
+      {meta.short}
       {workout.distance_km ? ` · ${workout.distance_km} km` : ''}
     </span>
   )
