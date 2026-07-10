@@ -37,10 +37,14 @@ export default async function DashboardPage({
   if (profile && !profile.onboarding_completed) redirect('/onboarding')
 
   // Planned workouts — scoped to the ACTIVE plan only (not archived plans)
-  const { data: plannedWorkouts } = activePlan
-    ? await supabase.from('workouts').select('*')
-        .eq('plan_id', activePlan.id).eq('status', 'planned').neq('workout_type', 'rest')
+  // One fetch of the plan's workouts; planned list + progress counts derived below.
+  const { data: allWorkouts } = activePlan
+    ? await supabase.from('workouts')
+        .select('id, title, week_number, day_of_week, status, workout_type, distance_km, target_pace, duration_minutes, phase')
+        .eq('plan_id', activePlan.id)
     : { data: null }
+
+  const plannedWorkouts = (allWorkouts ?? []).filter(w => w.status === 'planned' && w.workout_type !== 'rest')
 
   // Weekly summary stats (last 7 days)
   const weekRuns = weekActivities ?? []
@@ -69,13 +73,9 @@ export default async function DashboardPage({
     } catch { /* ignore */ }
   }
 
-  // Plan progress
-  const completedCount = activePlan
-    ? (await supabase.from('workouts').select('id', { count: 'exact', head: true }).eq('plan_id', activePlan.id).eq('status', 'completed')).count ?? 0
-    : 0
-  const totalCount = activePlan
-    ? (await supabase.from('workouts').select('id', { count: 'exact', head: true }).eq('plan_id', activePlan.id).neq('workout_type', 'rest')).count ?? 0
-    : 0
+  // Plan progress — derived from the single workouts fetch above
+  const completedCount = (allWorkouts ?? []).filter(w => w.status === 'completed').length
+  const totalCount = (allWorkouts ?? []).filter(w => w.workout_type !== 'rest').length
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   // Days until race
