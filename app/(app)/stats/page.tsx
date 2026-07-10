@@ -76,7 +76,9 @@ export default function StatsPage() {
     const supabase = createClient()
     const [{ data: tok }, { data: acts }, { data: plan }] = await Promise.all([
       supabase.from('strava_tokens').select('*').maybeSingle(),
-      supabase.from('activities').select('*').eq('hidden', false).order('start_date', { ascending: false }).limit(500),
+      supabase.from('activities')
+        .select('id, name, start_date, distance_m, moving_time_s, avg_pace_s_per_km, avg_heartrate, max_heartrate, total_elevation, ai_comment, matched_workout_id')
+        .eq('hidden', false).order('start_date', { ascending: false }).limit(200),
       supabase.from('training_plans').select('id').eq('status', 'active').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
 
@@ -93,7 +95,7 @@ export default function StatsPage() {
     }
 
     setToken(tok)
-    setActivities(acts ?? [])
+    setActivities((acts ?? []) as unknown as Activity[])
     setPlanWorkouts(wk)
     setLoading(false)
   }

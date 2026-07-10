@@ -11,7 +11,9 @@ const barlow = Barlow({
 
 const barlowCondensed = Barlow_Condensed({
   subsets: ['latin'],
-  weight: ['400', '600', '700', '800', '900'],
+  // Display font is only used for headings/large numbers: .cond=800, font-black=900,
+  // occasional 700. Weights 400/600 were unused — dropped to cut font requests.
+  weight: ['700', '800', '900'],
   variable: '--font-barlow-condensed',
   display: 'swap',
 })
