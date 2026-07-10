@@ -44,5 +44,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // /api is excluded: every route handler does its own auth (getUser /
+  // service client / cron secret), so running getUser() here too added a
+  // second network round-trip to every API call. sw.js / manifest.json are
+  // public PWA assets — no auth needed.
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

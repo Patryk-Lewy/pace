@@ -45,28 +45,18 @@ export default function WorkoutDetailPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient()
-    const { data: w } = await supabase.from('workouts').select('*').eq('id', id).single()
+    // All three queries key off the route id — run them in parallel instead
+    // of a 3-step waterfall.
+    const [{ data: w }, { data: act }, { data: recent }] = await Promise.all([
+      supabase.from('workouts').select('*').eq('id', id).single(),
+      supabase.from('activities').select('*').eq('matched_workout_id', id).maybeSingle(),
+      supabase.from('activities').select('max_heartrate').order('start_date', { ascending: false }).limit(20),
+    ])
+
     setWorkout(w)
     setNotes(w?.user_notes ?? '')
-
-    if (w) {
-      const { data: act } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('matched_workout_id', w.id)
-        .maybeSingle()
-
-      setMatchedActivity(act ?? null)
-
-      if (act) {
-        const { data: recent } = await supabase
-          .from('activities')
-          .select('max_heartrate')
-          .order('start_date', { ascending: false })
-          .limit(20)
-        setMaxHR(estimateMaxHR(recent ?? []))
-      }
-    }
+    setMatchedActivity(act ?? null)
+    if (act) setMaxHR(estimateMaxHR(recent ?? []))
 
     setLoading(false)
   }, [id])

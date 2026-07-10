@@ -54,14 +54,19 @@ export default async function DashboardPage({
 
   // "Next workout" = nearest planned workout by actual date (prefer upcoming).
   let nextWorkout: NonNullable<typeof plannedWorkouts>[number] | null = null
+  let todayWorkout: NonNullable<typeof plannedWorkouts>[number] | null = null
   if (activePlan && plannedWorkouts?.length) {
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
+    const endOfToday = startOfToday.getTime() + 86_400_000
     const dated = plannedWorkouts
       .map(w => ({ w, date: computeWorkoutDate(activePlan.created_at, w.week_number, w.day_of_week) }))
       .sort((a, b) => a.date.getTime() - b.date.getTime())
     const upcoming = dated.find(d => d.date.getTime() >= startOfToday.getTime())
     nextWorkout = (upcoming ?? dated[dated.length - 1]).w
+    todayWorkout = dated.find(d =>
+      d.date.getTime() >= startOfToday.getTime() && d.date.getTime() < endOfToday
+    )?.w ?? null
   }
 
   // Pending AI adaptation (skip if applied/dismissed)
@@ -108,7 +113,7 @@ export default async function DashboardPage({
         </Link>
       </div>
 
-      <TodayBanner />
+      <TodayBanner workout={todayWorkout} />
 
       {pendingAdaptation && (
         <AdaptationBanner commentId={pendingAdaptation.id} result={pendingAdaptation.result} />
