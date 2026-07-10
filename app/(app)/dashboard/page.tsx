@@ -15,8 +15,9 @@ export default async function DashboardPage({
   searchParams: Promise<{ strava?: string }>
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   const params = await searchParams
   const weekAgoISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()

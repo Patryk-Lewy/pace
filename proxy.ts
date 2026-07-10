@@ -28,7 +28,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const authRoutes = ['/login', '/register']
-  const protectedRoutes = ['/dashboard', '/onboarding', '/plan', '/calendar']
+  // Middleware is the single authoritative auth check for the whole app; the
+  // layout/pages then read the id from getSession() (no network round-trip).
+  const protectedRoutes = ['/dashboard', '/onboarding', '/plan', '/calendar', '/stats', '/settings', '/race', '/run']
 
   if (!user && protectedRoutes.some(r => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL('/login', request.url))

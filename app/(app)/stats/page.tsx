@@ -7,8 +7,9 @@ const DAY_IDX: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4
 
 export default async function StatsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/login')
+  const user = session.user
 
   const [{ data: token }, { data: acts }, { data: plan }] = await Promise.all([
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
