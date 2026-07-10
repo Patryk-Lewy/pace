@@ -55,3 +55,44 @@ html, body {
 .pulse-green {
   animation: pulse-green 2.5s infinite;
 }
+
+/* Touch feedback — all tappable elements (matches prototype) */
+.press {
+  cursor: pointer;
+  transition: transform .12s ease, opacity .12s ease;
+}
+.press:active {
+  transform: scale(.97);
+  opacity: .9;
+}
+
+/* Pulsing "live" dot for the live-run screen */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .3; }
+}
+.livedot { animation: pulseDot 1.4s infinite; }
+
+/* Condensed display type — big numbers, screen titles, CTAs */
+.cond {
+  font-family: var(--font-barlow-condensed), sans-serif;
+  font-weight: 800;
+  line-height: .92;
+}
+
+/* Uppercase kicker labels */
+.kick {
+  font-family: var(--font-barlow), sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* App shell: full-height mobile column with bottom-tab clearance */
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0 20px calc(112px + env(safe-area-inset-bottom));
+  max-width: 480px;
+  margin: 0 auto;
+}

@@ -4,9 +4,9 @@ import Link from 'next/link'
 import StravaToast from '@/components/StravaToast'
 import TodayBanner from '@/components/TodayBanner'
 import AdaptationBanner from '@/components/AdaptationBanner'
-import { PoweredByStrava } from '@/components/PoweredByStrava'
-import { formatPace, formatDuration } from '@/lib/strava'
+import { formatPace } from '@/lib/strava'
 import { computeWorkoutDate } from '@/lib/workout-matching'
+import { metaFor, shortPace } from '@/lib/workout-meta'
 import type { AdaptationResult } from '@/lib/plan-adaptation'
 
 export default async function DashboardPage({
@@ -24,18 +24,16 @@ export default async function DashboardPage({
   const [
     { data: profile },
     { data: activePlan },
-    { data: stravaToken },
-    { data: recentActivity },
     { data: adaptationComment },
     { data: weekActivities },
   ] = await Promise.all([
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
-    supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
-    supabase.from('activities').select('*').eq('user_id', user.id).eq('hidden', false).order('start_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('activities').select('distance_m, moving_time_s, avg_pace_s_per_km').eq('user_id', user.id).eq('hidden', false).gte('start_date', weekAgoISO),
+    supabase.from('activities').select('distance_m, avg_pace_s_per_km').eq('user_id', user.id).eq('hidden', false).gte('start_date', weekAgoISO),
   ])
+
+  if (profile && !profile.onboarding_completed) redirect('/onboarding')
 
   // Planned workouts — scoped to the ACTIVE plan only (not archived plans)
   const { data: plannedWorkouts } = activePlan
@@ -43,15 +41,13 @@ export default async function DashboardPage({
         .eq('plan_id', activePlan.id).eq('status', 'planned').neq('workout_type', 'rest')
     : { data: null }
 
-  // Compute weekly summary stats
+  // Weekly summary stats (last 7 days)
   const weekRuns = weekActivities ?? []
   const weekKm = weekRuns.reduce((s, a) => s + (a.distance_m ?? 0) / 1000, 0)
-  const weekTime = weekRuns.reduce((s, a) => s + (a.moving_time_s ?? 0), 0)
   const weekPaces = weekRuns.filter(a => a.avg_pace_s_per_km).map(a => a.avg_pace_s_per_km!)
   const weekAvgPace = weekPaces.length ? Math.round(weekPaces.reduce((s, p) => s + p, 0) / weekPaces.length) : null
 
-  // "Next workout" = nearest planned workout by actual date (not earliest week).
-  // Prefer upcoming (today or later); if none, fall back to the most overdue one.
+  // "Next workout" = nearest planned workout by actual date (prefer upcoming).
   let nextWorkout: NonNullable<typeof plannedWorkouts>[number] | null = null
   if (activePlan && plannedWorkouts?.length) {
     const startOfToday = new Date()
@@ -63,263 +59,203 @@ export default async function DashboardPage({
     nextWorkout = (upcoming ?? dated[dated.length - 1]).w
   }
 
-  // Parse pending adaptation suggestion (skip if applied or dismissed)
+  // Pending AI adaptation (skip if applied/dismissed)
   let pendingAdaptation: { id: string; result: AdaptationResult } | null = null
   if (adaptationComment) {
     try {
       const parsed = JSON.parse(adaptationComment.content) as AdaptationResult
-      if (!parsed.dismissed && !parsed.applied) {
-        pendingAdaptation = { id: adaptationComment.id, result: parsed }
-      }
+      if (!parsed.dismissed && !parsed.applied) pendingAdaptation = { id: adaptationComment.id, result: parsed }
     } catch { /* ignore */ }
   }
 
-  if (profile && !profile.onboarding_completed) redirect('/onboarding')
-
-  const distanceLabels: Record<string, string> = {
-    '5km': '5 km', '10km': '10 km', half: 'Półmaraton', marathon: 'Maraton',
-  }
-
+  // Plan progress
   const completedCount = activePlan
-    ? (await supabase.from('workouts').select('id', { count: 'exact' }).eq('plan_id', activePlan.id).eq('status', 'completed')).count ?? 0
+    ? (await supabase.from('workouts').select('id', { count: 'exact', head: true }).eq('plan_id', activePlan.id).eq('status', 'completed')).count ?? 0
     : 0
-
   const totalCount = activePlan
-    ? (await supabase.from('workouts').select('id', { count: 'exact' }).eq('plan_id', activePlan.id).neq('workout_type', 'rest')).count ?? 0
+    ? (await supabase.from('workouts').select('id', { count: 'exact', head: true }).eq('plan_id', activePlan.id).neq('workout_type', 'rest')).count ?? 0
     : 0
-
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
+  // Days until race
+  const daysToRace = profile?.race_date
+    ? Math.ceil((new Date(profile.race_date).getTime() - Date.now()) / 86_400_000)
+    : null
+
+  const firstName = deriveName(user.email)
+  const avatarInitial = firstName.charAt(0).toUpperCase()
+  const dateLabel = capitalize(new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }))
+
   return (
-    <div className="max-w-4xl animate-fade-up">
+    <div className="animate-fade-up">
       {params.strava && <StravaToast status={params.strava} />}
 
-      <div className="mb-8">
-        <h1 className="text-5xl font-black mb-1" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-          Dashboard
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--text-2)' }}>{user.email}</p>
+      {/* Header */}
+      <div className="flex items-center justify-between" style={{ padding: '18px 0 22px' }}>
+        <div>
+          <div style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)' }}>{dateLabel}</div>
+          <div className="cond" style={{ fontSize: 30, marginTop: 2 }}>Cześć, {firstName}</div>
+        </div>
+        <Link href="/settings" aria-label="Ustawienia"
+          className="press flex items-center justify-center"
+          style={{
+            width: 42, height: 42, borderRadius: '50%', background: 'var(--surface2)',
+            border: '1px solid rgba(255,255,255,.08)',
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 16, color: 'var(--green)',
+          }}>
+          {avatarInitial}
+        </Link>
       </div>
 
       <TodayBanner />
 
-      {/* Race day banner — visible when race is ≤14 days away */}
-      {profile?.race_date && profile?.race_goal_time && (() => {
-        const daysLeft = Math.ceil(
-          (new Date(profile.race_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-        )
-        if (daysLeft > 14 || daysLeft < 0) return null
-        return (
-          <Link href="/race" className="block mb-4">
-            <div className="rounded-2xl px-5 py-4 flex items-center justify-between transition-all hover:scale-[1.01]"
-              style={{ background: 'var(--green-dim)', border: '1px solid var(--green)' }}>
-              <div>
-                <p className="text-sm font-black" style={{ color: 'var(--green)' }}>
-                  🏁 Zawody za {daysLeft === 0 ? 'dziś!' : `${daysLeft} ${daysLeft === 1 ? 'dzień' : 'dni'}`}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-2)' }}>
-                  Sprawdź strategię startową — plan tempa co 5 km
-                </p>
-              </div>
-              <span className="text-lg" style={{ color: 'var(--green)' }}>→</span>
-            </div>
-          </Link>
-        )
-      })()}
-
-      {/* AI plan adaptation suggestion */}
       {pendingAdaptation && (
-        <AdaptationBanner
-          commentId={pendingAdaptation.id}
-          result={pendingAdaptation.result}
-        />
+        <AdaptationBanner commentId={pendingAdaptation.id} result={pendingAdaptation.result} />
       )}
 
-      {/* Profile stats — compact horizontal strip */}
-      {profile && (
-        <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="grid grid-cols-3">
-            <StatItem label="Cel" value={distanceLabels[profile.race_distance ?? ''] ?? '—'} />
-            <StatItem label="Km / tydz." value={profile.weekly_km ? `${profile.weekly_km} km` : '—'} />
-            <StatItem label="Rekord 5 km" value={profile.pb_5k ?? profile.best_5k_pace ?? '—'} />
-          </div>
-        </div>
-      )}
-
-      {/* Active plan */}
-      {activePlan ? (
-        <div className="space-y-4 mb-6">
-          <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>Aktywny plan</p>
-                <h2 className="text-xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-                  {activePlan.plan_name}
-                </h2>
-              </div>
-              <p className="text-4xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
-                {progressPct}%
-              </p>
-            </div>
-            <div className="h-1.5 rounded-full mb-2" style={{ background: 'var(--surface3)' }}>
-              <div className="h-1.5 rounded-full transition-all duration-1000"
-                style={{ width: `${progressPct}%`, background: 'var(--green)' }} />
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              {completedCount} / {totalCount} treningów ukończonych
-            </p>
-          </div>
-
-          {nextWorkout && (
-            <Link href={`/calendar/${nextWorkout.id}`}>
-              <div className="rounded-2xl p-5 cursor-pointer transition-all hover:scale-[1.01]"
-                style={{ background: 'var(--surface)', border: '1px solid var(--green)', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--green)' }} />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--green)' }}>
-                      Następny trening · Tydzień {nextWorkout.week_number}
-                    </p>
-                    <p className="text-lg font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-                      {nextWorkout.title}
-                    </p>
-                    <div className="flex gap-3 mt-1 text-xs" style={{ color: 'var(--text-3)' }}>
-                      {nextWorkout.distance_km && <span>{nextWorkout.distance_km} km</span>}
-                      {nextWorkout.target_pace && <span>@ {nextWorkout.target_pace.match(/^\d+:\d{2}/)?.[0] ?? nextWorkout.target_pace}/km</span>}
-                      {nextWorkout.duration_minutes && <span>~{nextWorkout.duration_minutes} min</span>}
-                    </div>
-                  </div>
-                  <span className="text-2xl">→</span>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          <div className="flex gap-3">
-            <Link href="/plan" className="flex-1">
-              <div className="rounded-xl py-3 text-sm font-bold text-center transition-all hover:opacity-80"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-                Plan →
-              </div>
-            </Link>
-            <Link href="/calendar" className="flex-1">
-              <div className="rounded-xl py-3 text-sm font-bold text-center transition-all hover:opacity-80"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-                Kalendarz →
-              </div>
-            </Link>
-          </div>
-        </div>
+      {/* Hero — today's / next workout */}
+      {activePlan && nextWorkout ? (
+        <HeroWorkout workout={nextWorkout} />
+      ) : !activePlan ? (
+        <NoPlanCard />
       ) : (
-        <div className="rounded-2xl p-8 flex flex-col items-center text-center mb-6"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="text-4xl mb-4">🤖</div>
-          <h2 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            Brak aktywnego planu
-          </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-2)' }}>Claude wygeneruje plan skrojony pod Ciebie.</p>
-          <Link href="/plan">
-            <button className="rounded-xl px-8 py-3 text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5"
-              style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', background: 'var(--green)', color: '#000' }}>
-              Wygeneruj plan →
-            </button>
-          </Link>
+        <div className="rounded-3xl p-6 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="cond" style={{ fontSize: 22 }}>Plan ukończony 🎉</div>
+          <p style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)', marginTop: 6 }}>
+            Brak zaplanowanych treningów.
+          </p>
         </div>
       )}
 
-      {/* Weekly summary widget */}
-      {weekRuns.length > 0 && (
-        <div className="rounded-2xl p-5 mb-4"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-              📊 Ostatnie 7 dni
-            </p>
-            <Link href="/stats" className="text-xs font-semibold" style={{ color: 'var(--green)' }}>
-              Statystyki →
-            </Link>
-          </div>
-          <div className="grid grid-cols-4 gap-3">
-            <WeeklyStat label="Biegi" value={String(weekRuns.length)} unit="" accent />
-            <WeeklyStat label="Dystans" value={weekKm.toFixed(1)} unit="km" />
-            <WeeklyStat label="Śr. tempo" value={weekAvgPace ? formatPace(weekAvgPace) : '—'} unit={weekAvgPace ? '/km' : ''} />
-            <WeeklyStat label="Czas" value={weekTime > 0 ? formatDuration(weekTime) : '—'} unit="" />
-          </div>
-        </div>
-      )}
-
-      {/* Strava section */}
-      <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        {stravaToken ? (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {stravaToken.athlete_photo && (
-                  <img src={stravaToken.athlete_photo} alt="strava" className="w-10 h-10 rounded-full" />
-                )}
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--green)' }}>
-                    ● Strava połączona
-                  </p>
-                  <p className="text-sm font-bold">{stravaToken.athlete_name}</p>
-                </div>
+      {/* Race countdown banner (≤ 60 days) */}
+      {daysToRace !== null && daysToRace >= 0 && daysToRace <= 60 && (
+        <Link href="/race" className="press block" style={{ marginTop: 12, textDecoration: 'none' }}>
+          <div className="flex items-center gap-3"
+            style={{ borderRadius: 18, padding: '15px 18px', background: 'var(--green-dim)', border: '1px solid rgba(0,230,118,.25)' }}>
+            <span style={{ fontSize: 20 }}>🏁</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ font: '700 14px var(--font-barlow)', color: 'var(--green)' }}>
+                {raceLabel(profile?.race_distance)} za {daysToRace === 0 ? 'dziś!' : `${daysToRace} ${daysToRace === 1 ? 'dzień' : 'dni'}`}
               </div>
-              {recentActivity && (
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>Ostatni bieg</p>
-                  <p className="text-sm font-semibold">{((recentActivity.distance_m ?? 0) / 1000).toFixed(2)} km</p>
-                </div>
-              )}
-              <Link href="/stats" className="text-sm font-semibold" style={{ color: 'var(--text-2)' }}>
-                Statystyki →
-              </Link>
+              <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-2)' }}>Zobacz strategię startową</div>
             </div>
-            {recentActivity && (
-              <div className="mt-3 pt-3 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
-                <PoweredByStrava />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex items-center justify-between">
+            <span style={{ color: 'var(--green)' }}>›</span>
+          </div>
+        </Link>
+      )}
+
+      {/* Plan progress */}
+      {activePlan && (
+        <div style={{ borderRadius: 22, padding: '18px 20px', background: 'var(--surface)', border: '1px solid var(--border)', marginTop: 12 }}>
+          <div className="flex justify-between items-baseline" style={{ marginBottom: 12 }}>
             <div>
-              <p className="text-sm font-bold mb-0.5">Połącz Stravę</p>
-              <p className="text-xs" style={{ color: 'var(--text-3)' }}>Automatyczna analiza AI po każdym biegu</p>
+              <div className="kick" style={{ fontSize: 10, color: 'var(--text-3)' }}>Faza: {nextWorkout?.phase ?? '—'}</div>
+              <div style={{ font: '600 15px var(--font-barlow)', marginTop: 2 }}>
+                Tydzień {nextWorkout?.week_number ?? 1} z {activePlan.total_weeks}
+              </div>
             </div>
-            <a href="/api/strava/connect"
-              className="rounded-xl px-4 py-2 text-sm font-black uppercase tracking-widest"
-              style={{ background: '#FC4C02', color: '#fff', fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-              Połącz →
-            </a>
+            <div className="cond" style={{ fontSize: 26, color: 'var(--green)' }}>{progressPct}<span style={{ fontSize: 14 }}>%</span></div>
           </div>
-        )}
+          <div style={{ height: 6, borderRadius: 6, background: 'var(--surface3)', overflow: 'hidden' }}>
+            <div className="transition-all duration-1000" style={{ width: `${progressPct}%`, height: '100%', background: 'var(--green)', borderRadius: 6 }} />
+          </div>
+          <p style={{ font: '500 11px var(--font-barlow)', color: 'var(--text-3)', marginTop: 8 }}>
+            {completedCount} / {totalCount} treningów ukończonych
+          </p>
+        </div>
+      )}
+
+      {/* Mini stats — last 7 days */}
+      <div className="flex" style={{ gap: 10, marginTop: 12 }}>
+        <MiniStat label="7 dni · km" value={weekKm > 0 ? weekKm.toFixed(1) : '—'} />
+        <MiniStat label="Śr. tempo" value={weekAvgPace ? formatPace(weekAvgPace) : '—'} />
+        <MiniStat label="Biegi" value={String(weekRuns.length)} accent />
       </div>
     </div>
   )
 }
 
-function StatItem({ label, value }: { label: string; value: string }) {
+// ─── Components ───────────────────────────────────────────────────────────────
+
+function HeroWorkout({ workout }: { workout: { id: string; title: string; workout_type: string; week_number: number; distance_km: number | null; target_pace: string | null; duration_minutes: number | null } }) {
+  const meta = metaFor(workout.workout_type)
+  const pace = shortPace(workout.target_pace)
   return (
-    <div className="p-4 text-center border-r last:border-r-0" style={{ borderColor: 'var(--border)' }}>
-      <p className="text-xs font-semibold uppercase tracking-widest mb-1 truncate" style={{ color: 'var(--text-3)' }}>{label}</p>
-      <p className="text-xl font-black leading-tight" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
-        {value}
-      </p>
+    <div style={{
+      borderRadius: 26, padding: 24, position: 'relative', overflow: 'hidden',
+      background: 'linear-gradient(160deg, rgba(0,230,118,.14), rgba(0,230,118,.03))',
+      border: '1px solid rgba(0,230,118,.35)',
+    }}>
+      <div style={{ position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,230,118,.18), transparent 70%)' }} />
+      <div className="kick" style={{ fontSize: 11, color: 'var(--green)' }}>Dziś · Tydzień {workout.week_number}</div>
+      <div className="cond" style={{ fontSize: 40, margin: '8px 0 4px' }}>{workout.title}</div>
+      <div className="inline-flex items-center" style={{ gap: 6, background: meta.bg, color: meta.color, borderRadius: 20, padding: '5px 12px', font: '700 11px var(--font-barlow)' }}>
+        {meta.emoji} {meta.label.toUpperCase()} · STREFA {meta.zone}
+      </div>
+      <div className="flex" style={{ gap: 10, marginTop: 22 }}>
+        <HeroMetric label="Dystans" value={workout.distance_km ?? '—'} unit="km" />
+        <HeroMetric label="Tempo" value={pace ?? '—'} unit={pace ? '/km' : ''} />
+        <HeroMetric label="Czas" value={workout.duration_minutes ?? '—'} unit={workout.duration_minutes ? 'min' : ''} />
+      </div>
+      <div className="flex" style={{ gap: 10, marginTop: 16 }}>
+        <Link href="/run" className="press" style={{
+          flex: 2, background: 'var(--green)', color: '#000', borderRadius: 16, padding: 16, textAlign: 'center',
+          font: '800 15px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', textDecoration: 'none',
+        }}>Zacznij trening →</Link>
+        <Link href={`/calendar/${workout.id}`} className="press flex items-center justify-center" style={{
+          flex: 1, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: 'var(--text)',
+          borderRadius: 16, font: '700 12px var(--font-barlow)', textDecoration: 'none',
+        }}>Szczegóły</Link>
+      </div>
     </div>
   )
 }
 
-function WeeklyStat({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
+function HeroMetric({ label, value, unit }: { label: string; value: string | number; unit: string }) {
   return (
-    <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
-      <p className="text-xs font-semibold uppercase tracking-widest mb-1.5 truncate" style={{ color: 'var(--text-3)' }}>
-        {label}
-      </p>
-      <p className="text-lg font-black leading-none truncate"
-        style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: accent ? 'var(--green)' : 'var(--text)' }}>
-        {value}
-      </p>
-      {unit && <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>{unit}</p>}
+    <div style={{ flex: 1, background: 'rgba(255,255,255,.05)', borderRadius: 16, padding: '12px 8px', textAlign: 'center' }}>
+      <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>{label}</div>
+      <div className="cond" style={{ fontSize: 26, marginTop: 3 }}>{value}<span style={{ fontSize: 13, fontWeight: 600 }}>{unit}</span></div>
     </div>
   )
+}
+
+function MiniStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div style={{ flex: 1, borderRadius: 18, padding: '14px 12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>{label}</div>
+      <div className="cond" style={{ fontSize: 28, marginTop: 4, color: accent ? 'var(--green)' : 'var(--text)' }}>{value}</div>
+    </div>
+  )
+}
+
+function NoPlanCard() {
+  return (
+    <div className="flex flex-col items-center text-center" style={{ borderRadius: 26, padding: 32, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 40, marginBottom: 16 }}>🤖</div>
+      <div className="cond" style={{ fontSize: 24, marginBottom: 8 }}>Brak aktywnego planu</div>
+      <p style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)', marginBottom: 20 }}>Claude wygeneruje plan skrojony pod Ciebie.</p>
+      <Link href="/plan" className="press" style={{
+        background: 'var(--green)', color: '#000', borderRadius: 16, padding: '14px 28px',
+        font: '800 14px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', textDecoration: 'none',
+      }}>Wygeneruj plan →</Link>
+    </div>
+  )
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function deriveName(email: string | undefined): string {
+  if (!email) return 'Biegaczu'
+  const local = email.split('@')[0].split(/[._-]/)[0]
+  return capitalize(local)
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function raceLabel(distance: string | null | undefined): string {
+  const map: Record<string, string> = { '5km': 'Bieg 5 km', '10km': 'Bieg 10 km', half: 'Półmaraton', marathon: 'Maraton' }
+  return map[distance ?? ''] ?? 'Zawody'
 }
