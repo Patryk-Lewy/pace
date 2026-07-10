@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PlanParamsEditor from '@/components/PlanParamsEditor'
+import { metaFor } from '@/lib/workout-meta'
 import type { TrainingPlan } from '@/types/database'
 
 const DISTANCE_LABELS: Record<string, string> = {
@@ -15,6 +16,15 @@ const PHASE_COLORS: Record<string, string> = {
   'Budowanie': 'var(--orange)',
   'Szczyt': 'var(--green)',
   'Tapering': 'var(--text-3)',
+}
+
+/** 1-based training week that "now" falls into, based on plan start (Monday-aligned). */
+function currentWeekNumber(createdAt: string, totalWeeks: number): number {
+  const start = new Date(createdAt)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)) // back to Monday
+  const weeks = Math.floor((Date.now() - start.getTime()) / (7 * 86_400_000)) + 1
+  return Math.min(Math.max(weeks, 1), totalWeeks)
 }
 
 export default function PlanPage() {
@@ -44,33 +54,23 @@ export default function PlanPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center" style={{ height: 240 }}>
         <div className="text-sm" style={{ color: 'var(--text-3)' }}>Ładowanie...</div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl animate-fade-up">
-      <div className="mb-8">
-        <h1 className="text-5xl font-black mb-1" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-          Plan treningowy
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-          Wygenerowany przez Claude AI na podstawie Twojego profilu
-        </p>
-      </div>
-
+    <div className="animate-fade-up">
       {/* No plan yet */}
       {!plan && (
-        <div className="flex flex-col gap-4">
-          <div className="rounded-2xl p-10 flex flex-col items-center text-center"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div className="text-5xl mb-6">🤖</div>
-            <h2 className="text-3xl font-black mb-3" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-              Brak aktywnego planu
-            </h2>
-            <p className="text-sm max-w-sm" style={{ color: 'var(--text-2)' }}>
+        <div className="flex flex-col" style={{ gap: 16, paddingTop: 20 }}>
+          <div className="kick" style={{ fontSize: 10, color: 'var(--green)' }}>Plan treningowy</div>
+          <div className="flex flex-col items-center text-center"
+            style={{ borderRadius: 26, padding: 32, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🤖</div>
+            <div className="cond" style={{ fontSize: 26, marginBottom: 8 }}>Brak aktywnego planu</div>
+            <p style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)' }}>
               Ustaw parametry poniżej i wygeneruj spersonalizowany plan treningowy.
             </p>
           </div>
@@ -80,7 +80,7 @@ export default function PlanPage() {
 
       {/* Plan exists */}
       {plan && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col" style={{ gap: 24 }}>
           <PlanView plan={plan} onCalendar={() => router.push('/calendar')} />
           <PlanParamsEditor hasPlan={true} onRebuilt={loadPlan} />
         </div>
@@ -88,29 +88,27 @@ export default function PlanPage() {
 
       {/* Archived plans */}
       {archivedPlans.length > 0 && (
-        <div className="mt-6">
+        <div style={{ marginTop: 24 }}>
           <button
             onClick={() => setShowArchive(v => !v)}
-            className="flex items-center gap-2 text-sm mb-3 transition-all hover:opacity-70"
-            style={{ color: 'var(--text-3)' }}>
+            className="flex items-center press"
+            style={{ gap: 8, font: '600 13px var(--font-barlow)', color: 'var(--text-3)', marginBottom: 12, background: 'none', border: 'none' }}>
             {showArchive ? '▲' : '▼'} Archiwum planów ({archivedPlans.length})
           </button>
 
           {showArchive && (
-            <div className="space-y-2">
+            <div className="flex flex-col" style={{ gap: 8 }}>
               {archivedPlans.map(p => (
-                <div key={p.id} className="rounded-2xl px-5 py-4 flex items-center justify-between"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', opacity: 0.7 }}>
+                <div key={p.id} className="flex items-center justify-between"
+                  style={{ borderRadius: 18, padding: '14px 18px', background: 'var(--surface)', border: '1px solid var(--border)', opacity: 0.7 }}>
                   <div>
-                    <p className="text-sm font-bold">{p.plan_name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+                    <p style={{ font: '700 14px var(--font-barlow)' }}>{p.plan_name}</p>
+                    <p style={{ font: '500 11px var(--font-barlow)', color: 'var(--text-3)', marginTop: 2 }}>
                       {DISTANCE_LABELS[p.race_distance] ?? p.race_distance} · {p.total_weeks} tygodni
                       {p.race_date && ` · ${p.race_date}`}
-                      {' · '}wygenerowany {new Date(p.created_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full"
-                    style={{ background: 'var(--surface2)', color: 'var(--text-3)' }}>
+                  <span style={{ font: '600 11px var(--font-barlow)', padding: '4px 10px', borderRadius: 20, background: 'var(--surface2)', color: 'var(--text-3)' }}>
                     Archiwalny
                   </span>
                 </div>
@@ -324,115 +322,109 @@ function PlanView({ plan, onCalendar }: {
   const [showGarminSync, setShowGarminSync] = useState(false)
   const planJson = plan.plan_json as unknown as PlanJson
 
-  // Group weeks by phase
+  const curWeek = currentWeekNumber(plan.created_at, planJson.total_weeks)
+  const currentPhase = planJson.weeks.find(w => w.week_number === curWeek)?.phase ?? null
+
+  // Group weeks by phase (insertion order preserves Baza→Budowanie→…)
   const phases: Record<string, typeof planJson.weeks> = {}
   planJson.weeks.forEach(w => {
     if (!phases[w.phase]) phases[w.phase] = []
     phases[w.phase].push(w)
   })
 
+  const raceDateLabel = plan.race_date
+    ? new Date(plan.race_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })
+    : null
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col" style={{ gap: 22 }}>
       {showGarminSync && <GarminSyncModal planId={plan.id} onClose={() => setShowGarminSync(false)} />}
 
-      {/* Header card */}
-      <div className="rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div>
-          <h2 className="text-2xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            {planJson.plan_name}
-          </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
-            {planJson.total_weeks} tygodni · {DISTANCE_LABELS[plan.race_distance] ?? plan.race_distance}
-            {plan.race_date && ` · Cel: ${plan.race_date}`}
-          </p>
-        </div>
-        <div className="flex gap-3 flex-wrap">
-          <button onClick={onCalendar}
-            className="rounded-xl px-5 py-2.5 text-sm font-bold transition-all"
-            style={{ background: 'var(--green)', color: '#000', fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            Kalendarz →
-          </button>
-          <button onClick={() => setShowGarminSync(true)}
-            className="rounded-xl px-5 py-2.5 text-sm font-semibold transition-all flex items-center gap-1.5 hover:-translate-y-0.5"
-            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-            ⌚ Sync Garmin
-          </button>
+      {/* Header */}
+      <div style={{ paddingTop: 20 }}>
+        <div className="kick" style={{ fontSize: 10, color: 'var(--green)' }}>Wygenerowany przez Claude AI</div>
+        <div className="cond" style={{ fontSize: 34, marginTop: 4 }}>{planJson.plan_name}</div>
+        <div style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)', marginTop: 2 }}>
+          {planJson.total_weeks} tygodni · {DISTANCE_LABELS[plan.race_distance] ?? plan.race_distance}
+          {raceDateLabel && ` · Cel: ${raceDateLabel}`}
         </div>
       </div>
 
-      {/* Phase overview */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Object.entries(phases).map(([phase, weeks]) => (
-          <div key={phase} className="rounded-2xl p-4"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div className="w-2 h-2 rounded-full mb-3" style={{ background: PHASE_COLORS[phase] ?? 'var(--text-3)' }} />
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
-              {phase}
-            </p>
-            <p className="text-2xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-              {weeks.length} tyg.
-            </p>
-          </div>
-        ))}
+      {/* Phase grid 2×2 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {Object.entries(phases).map(([phase, weeks]) => {
+          const isCurrent = phase === currentPhase
+          return (
+            <div key={phase}
+              style={{ borderRadius: 16, padding: 14, background: 'var(--surface)', border: `1px solid ${isCurrent ? 'rgba(0,230,118,.3)' : 'var(--border)'}` }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: PHASE_COLORS[phase] ?? 'var(--text-3)', marginBottom: 10 }} />
+              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>{phase}{isCurrent ? ' · teraz' : ''}</div>
+              <div className="cond" style={{ fontSize: 24, marginTop: 2 }}>{weeks.length} tyg.</div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Actions */}
+      <div className="flex" style={{ gap: 10 }}>
+        <button onClick={onCalendar} className="press" style={{
+          flex: 2, background: 'var(--green)', color: '#000', borderRadius: 16, padding: 14, textAlign: 'center',
+          font: '800 14px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', border: 'none',
+        }}>Kalendarz →</button>
+        <button onClick={() => setShowGarminSync(true)} className="press" style={{
+          flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)',
+          borderRadius: 16, font: '700 12px var(--font-barlow)',
+        }}>⌚ Garmin</button>
       </div>
 
       {/* Weekly breakdown */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-          Tygodnie
-        </h3>
-        {planJson.weeks.map(week => (
-          <div key={week.week_number} className="rounded-2xl p-5"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-                  style={{ background: 'var(--surface2)', color: 'var(--text-3)' }}>
-                  Tyg. {week.week_number}
-                </span>
-                <span className="text-xs font-semibold px-3 py-1 rounded-full"
-                  style={{ color: PHASE_COLORS[week.phase] ?? 'var(--text-3)', background: 'var(--surface2)' }}>
-                  {week.phase}
-                </span>
-              </div>
-              <span className="text-xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
-                {week.total_km} km
-              </span>
-            </div>
-            <p className="text-xs mb-3" style={{ color: 'var(--text-2)' }}>{week.focus}</p>
-            <div className="flex flex-wrap gap-2">
-              {week.workouts.filter(w => w.workout_type !== 'rest').map((w, i) => (
-                <WorkoutChip key={i} workout={w} />
-              ))}
-            </div>
-          </div>
-        ))}
+      <div>
+        <div className="kick" style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 12 }}>Tygodnie</div>
+        <div className="flex flex-col" style={{ gap: 10 }}>
+          {planJson.weeks.map(week => {
+            const isCurrent = week.week_number === curWeek
+            return (
+              <button key={week.week_number} onClick={onCalendar} className="press text-left"
+                style={{ width: '100%', borderRadius: 20, padding: 16, background: 'var(--surface)', border: `1px solid ${isCurrent ? 'rgba(0,230,118,.3)' : 'var(--border)'}` }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+                  <div className="flex" style={{ gap: 8 }}>
+                    <span style={{ font: '700 10px var(--font-barlow)', padding: '4px 10px', borderRadius: 20, background: 'var(--surface2)', color: 'var(--text-3)' }}>
+                      TYG. {week.week_number}
+                    </span>
+                    <span style={{ font: '700 10px var(--font-barlow)', padding: '4px 10px', borderRadius: 20, background: metaBgForPhase(week.phase), color: PHASE_COLORS[week.phase] ?? 'var(--text-3)' }}>
+                      {week.phase}
+                    </span>
+                  </div>
+                  <span className="cond" style={{ fontSize: 20, color: 'var(--green)' }}>{week.total_km} km</span>
+                </div>
+                <div className="flex flex-wrap" style={{ gap: 6 }}>
+                  {week.workouts.filter(w => w.workout_type !== 'rest').map((w, i) => (
+                    <WorkoutChip key={i} workout={w} />
+                  ))}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 }
 
+function metaBgForPhase(phase: string): string {
+  const map: Record<string, string> = {
+    'Baza': 'var(--blue-dim)', 'Budowanie': 'var(--orange-dim)',
+    'Szczyt': 'var(--green-dim)', 'Tapering': 'var(--surface2)',
+  }
+  return map[phase] ?? 'var(--surface2)'
+}
+
 function WorkoutChip({ workout }: { workout: { workout_type: string; title: string; distance_km: number | null; target_pace: string | null } }) {
-  const COLOR: Record<string, string> = {
-    easy_run: 'var(--blue)',
-    long_run: 'var(--blue)',
-    tempo: 'var(--orange)',
-    intervals: 'var(--orange)',
-    rest: 'var(--text-3)',
-  }
-  const BG: Record<string, string> = {
-    easy_run: 'var(--blue-dim)',
-    long_run: 'var(--blue-dim)',
-    tempo: 'var(--orange-dim)',
-    intervals: 'var(--orange-dim)',
-    rest: 'var(--surface3)',
-  }
+  const meta = metaFor(workout.workout_type)
   return (
-    <div className="rounded-xl px-3 py-1.5 text-xs font-semibold"
-      style={{ background: BG[workout.workout_type] ?? 'var(--surface2)', color: COLOR[workout.workout_type] ?? 'var(--text-2)' }}>
+    <span style={{ font: '600 11px var(--font-barlow)', padding: '6px 11px', borderRadius: 12, background: meta.bg, color: meta.color }}>
       {workout.title}
-      {workout.distance_km && ` · ${workout.distance_km} km`}
-    </div>
+      {workout.distance_km ? ` · ${workout.distance_km} km` : ''}
+    </span>
   )
 }

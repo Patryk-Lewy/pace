@@ -123,45 +123,43 @@ export default function StatsPage() {
   const totalRuns = activities.length
 
   return (
-    <div className="max-w-4xl animate-fade-up">
-      <div className="mb-8 flex items-start justify-between gap-4">
+    <div className="animate-fade-up">
+      <div className="flex items-end justify-between" style={{ gap: 12, padding: '20px 0 14px' }}>
         <div>
-          <h1 className="text-5xl font-black mb-1" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            Statystyki
-          </h1>
-          <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-            Historia biegów · <PoweredByStrava />
-          </p>
+          <div className="cond" style={{ fontSize: 30 }}>Statystyki</div>
+          <div className="flex items-center" style={{ gap: 6, marginTop: 2 }}>
+            <span style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>Dane ze Stravy</span>
+            <PoweredByStrava />
+          </div>
         </div>
 
         {token ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center" style={{ gap: 10 }}>
             {token.athlete_photo && (
-              <img src={token.athlete_photo} alt="avatar" className="w-9 h-9 rounded-full" />
+              <img src={token.athlete_photo} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%' }} />
             )}
             <div className="text-right">
-              <p className="text-sm font-semibold">{token.athlete_name}</p>
-              <p className="text-xs" style={{ color: 'var(--green)' }}>● Strava połączona</p>
+              <p style={{ font: '600 13px var(--font-barlow)' }}>{token.athlete_name}</p>
+              <p style={{ font: '500 11px var(--font-barlow)', color: 'var(--green)' }}>● Połączona</p>
             </div>
           </div>
         ) : (
-          <a href="/api/strava/connect"
-            className="rounded-xl px-5 py-2.5 text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 flex items-center gap-2"
-            style={{ background: '#FC4C02', color: '#fff', fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            🔗 Połącz Stravę
-          </a>
+          <a href="/api/strava/connect" className="press flex items-center" style={{
+            gap: 6, borderRadius: 12, padding: '10px 14px', background: '#FC4C02', color: '#fff',
+            font: '800 12px var(--font-barlow-condensed)', letterSpacing: 1, textTransform: 'uppercase', textDecoration: 'none',
+          }}>🔗 Strava</a>
         )}
       </div>
 
       {/* Not connected */}
-      {!token && (
+      {!token && activities.length === 0 && (
         <div className="rounded-2xl p-10 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="text-5xl mb-4">🏃</div>
           <h2 className="text-2xl font-black mb-2" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            Połącz Stravę
+            Brak biegów
           </h2>
           <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--text-2)' }}>
-            Po połączeniu PACE automatycznie pobiera Twoje biegi i analizuje je przez Claude AI.
+            Nagraj bieg przyciskiem ▶ na dole, albo połącz Stravę — PACE pobierze biegi i przeanalizuje je przez Claude AI.
           </p>
           <a href="/api/strava/connect"
             className="inline-block rounded-xl px-8 py-3 text-sm font-black uppercase tracking-widest"
@@ -171,8 +169,8 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* Connected */}
-      {token && (
+      {/* Has data (Strava connected or manual GPS runs) */}
+      {(token || activities.length > 0) && (
         <>
           {/* Summary */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
@@ -197,19 +195,21 @@ export default function StatsPage() {
             </div>
           )}
 
-          {/* Sync button */}
-          <div className="mb-6 flex items-center gap-4">
-            <button onClick={handleSync} disabled={syncing}
-              className="rounded-xl px-5 py-2.5 text-sm font-bold transition-all"
-              style={{
-                background: syncing ? 'var(--surface2)' : 'var(--surface)',
-                border: '1px solid var(--border)',
-                color: syncing ? 'var(--text-3)' : 'var(--text-2)',
-              }}>
-              {syncing ? '⟳ Synchronizowanie...' : '⟳ Synchronizuj aktywności'}
-            </button>
-            {syncMsg && <p className="text-sm" style={{ color: 'var(--green)' }}>{syncMsg}</p>}
-          </div>
+          {/* Sync button — Strava only */}
+          {token && (
+            <div className="mb-6 flex items-center gap-4">
+              <button onClick={handleSync} disabled={syncing}
+                className="rounded-xl px-5 py-2.5 text-sm font-bold transition-all"
+                style={{
+                  background: syncing ? 'var(--surface2)' : 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: syncing ? 'var(--text-3)' : 'var(--text-2)',
+                }}>
+                {syncing ? '⟳ Synchronizowanie...' : '⟳ Synchronizuj aktywności'}
+              </button>
+              {syncMsg && <p className="text-sm" style={{ color: 'var(--green)' }}>{syncMsg}</p>}
+            </div>
+          )}
 
           {/* HR Zones */}
           {activities.some(a => a.avg_heartrate) && (

@@ -88,12 +88,13 @@ export default function RacePage() {
   // No race configured
   if (!profile?.race_goal_time || !profile?.race_distance) {
     return (
-      <div className="max-w-lg animate-fade-up">
-        <h1 className="text-5xl font-black mb-1"
-          style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-          Strategia startowa
-        </h1>
-        <p className="text-sm mb-8" style={{ color: 'var(--text-2)' }}>
+      <div className="animate-fade-up">
+        <Link href="/dashboard" className="press flex items-center"
+          style={{ gap: 8, padding: '16px 0 10px', font: '600 13px var(--font-barlow)', color: 'var(--text-2)', textDecoration: 'none' }}>
+          <span style={{ fontSize: 18 }}>‹</span> Dziś
+        </Link>
+        <div className="cond" style={{ fontSize: 30 }}>Strategia startowa</div>
+        <p style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)', margin: '4px 0 24px' }}>
           Plan tempa na dzień zawodów
         </p>
         <div className="rounded-2xl p-8 flex flex-col items-center text-center"
@@ -158,30 +159,40 @@ export default function RacePage() {
   }
 
   return (
-    <div className="max-w-2xl animate-fade-up">
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-5xl font-black mb-1"
-            style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-            Strategia startowa
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-            {DISTANCE_LABELS[race_distance]} · cel {race_goal_time}
-            {daysUntil !== null && daysUntil > 0 && (
-              <span style={{ color: 'var(--green)' }}> · za {daysUntil} dni</span>
-            )}
-            {daysUntil !== null && daysUntil <= 0 && (
-              <span style={{ color: 'var(--orange)' }}> · dziś startujesz! 🏁</span>
-            )}
-          </p>
+    <div className="animate-fade-up">
+      {/* Back + header */}
+      <Link href="/dashboard" className="press flex items-center print:hidden"
+        style={{ gap: 8, padding: '16px 0 10px', font: '600 13px var(--font-barlow)', color: 'var(--text-2)', textDecoration: 'none' }}>
+        <span style={{ fontSize: 18 }}>‹</span> Dziś
+      </Link>
+      <div style={{ paddingBottom: 14 }}>
+        <div className="kick" style={{ fontSize: 10, color: 'var(--green)' }}>🏁 Dzień startu</div>
+        <div className="cond" style={{ fontSize: 30, marginTop: 4 }}>{DISTANCE_LABELS[race_distance]}</div>
+      </div>
+
+      {/* Countdown card */}
+      <div className="text-center" style={{
+        borderRadius: 24, padding: 22, marginBottom: 16,
+        background: 'linear-gradient(155deg, rgba(0,230,118,.14), rgba(0,230,118,.02))',
+        border: '1px solid rgba(0,230,118,.35)',
+      }}>
+        <div className="kick" style={{ fontSize: 10, color: 'var(--green)' }}>Do startu</div>
+        <div className="cond" style={{ fontSize: 56, margin: '4px 0 2px' }}>
+          {daysUntil !== null && daysUntil > 0
+            ? <>{daysUntil} <span style={{ fontSize: 20, color: 'var(--text-2)' }}>dni</span></>
+            : <span style={{ fontSize: 32 }}>Dziś! 🏁</span>}
         </div>
-        <button
-          onClick={() => window.print()}
-          className="rounded-xl px-4 py-2 text-sm font-semibold flex items-center gap-2 flex-shrink-0 transition-all hover:opacity-80 print:hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-          🖨️ Drukuj
-        </button>
+        <div className="flex justify-center" style={{ gap: 24, marginTop: 14 }}>
+          <div>
+            <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Cel</div>
+            <div className="cond" style={{ fontSize: 24, color: 'var(--green)', marginTop: 2 }}>{race_goal_time}</div>
+          </div>
+          <div style={{ width: 1, background: 'rgba(255,255,255,.12)' }} />
+          <div>
+            <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Tempo</div>
+            <div className="cond" style={{ fontSize: 24, marginTop: 2 }}>{evenPace}<span style={{ fontSize: 11 }}>/km</span></div>
+          </div>
+        </div>
       </div>
 
       {/* Race time prediction */}
@@ -270,38 +281,8 @@ export default function RacePage() {
         </div>
       </div>
 
-      {/* Base pace info */}
-      <div className="rounded-2xl p-4 mb-4 flex items-center gap-6"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
-            Cel
-          </p>
-          <p className="text-2xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--green)' }}>
-            {race_goal_time}
-          </p>
-        </div>
-        <div className="w-px h-10" style={{ background: 'var(--border)' }} />
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
-            Tempo bazowe
-          </p>
-          <p className="text-2xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--text)' }}>
-            {evenPace}<span className="text-sm font-normal">/km</span>
-          </p>
-        </div>
-        <div className="w-px h-10" style={{ background: 'var(--border)' }} />
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-3)' }}>
-            Dystans
-          </p>
-          <p className="text-2xl font-black" style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', color: 'var(--text)' }}>
-            {distKm % 1 === 0 ? distKm : distKm.toFixed(1)}<span className="text-sm font-normal"> km</span>
-          </p>
-        </div>
-      </div>
-
       {/* Checkpoint table */}
+      <div className="kick" style={{ fontSize: 10, color: 'var(--text-3)', margin: '20px 0 12px' }}>Plan tempa co 5 km</div>
       <div className="rounded-2xl overflow-hidden"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
 

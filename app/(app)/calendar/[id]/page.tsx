@@ -181,12 +181,12 @@ export default function WorkoutDetailPage() {
   const isSkipped = workout.status === 'skipped'
 
   return (
-    <div className="max-w-2xl animate-fade-up">
+    <div className="animate-fade-up">
       {/* Back */}
       <button onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm mb-6 transition-all hover:opacity-70"
-        style={{ color: 'var(--text-3)' }}>
-        ← Kalendarz
+        className="press flex items-center"
+        style={{ gap: 8, padding: '16px 0 14px', font: '600 13px var(--font-barlow)', color: 'var(--text-2)', background: 'none', border: 'none' }}>
+        <span style={{ fontSize: 18 }}>‹</span> Kalendarz
       </button>
 
       {/* Header */}
@@ -457,10 +457,19 @@ export default function WorkoutDetailPage() {
 
       {/* Actions */}
       <div className="flex flex-col gap-3">
+        {/* Start a live run */}
+        {workout.workout_type !== 'rest' && !isCompleted && (
+          <button onClick={() => router.push('/run')}
+            className="press w-full"
+            style={{ borderRadius: 16, padding: 16, background: 'var(--green)', color: '#000',
+              font: '800 15px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', border: 'none' }}>
+            ▶ Zacznij trening
+          </button>
+        )}
         {!isCompleted ? (
           <button onClick={() => setStatus('completed')} disabled={saving}
-            className="w-full rounded-xl py-4 text-base font-black uppercase tracking-widest transition-all hover:-translate-y-0.5"
-            style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', background: 'var(--green)', color: '#000' }}>
+            className="w-full rounded-xl py-3 text-sm font-bold transition-all"
+            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
             {saving ? 'Zapisywanie...' : '✓ Oznacz jako ukończony'}
           </button>
         ) : (

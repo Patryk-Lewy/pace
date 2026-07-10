@@ -37,11 +37,27 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)', borderRadius: 10, padding: '10px 14px', fontSize: 14, width: '100%',
 }
 
+function ProfileStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div style={{ flex: 1, borderRadius: 14, padding: 12, background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'center' }}>
+      <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>{label}</div>
+      <div className="cond" style={{ fontSize: 18, marginTop: 3, color: accent ? 'var(--green)' : 'var(--text)' }}>{value}</div>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
+
+const DISTANCE_LABELS: Record<string, string> = {
+  '5km': '5 km', '10km': '10 km', half: 'Półmaraton', marathon: 'Maraton',
+}
+
+type ProfileLite = { race_distance: string | null; weekly_km: number | null; pb_5k: string | null; best_5k_pace: string | null }
 
 export default function SettingsPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
+  const [profile, setProfile] = useState<ProfileLite | null>(null)
   const [stravaConnected, setStravaConnected] = useState(false)
   const [loading, setLoading] = useState(true)
   const [deleteModal, setDeleteModal] = useState(false)
@@ -50,16 +66,25 @@ export default function SettingsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: { user } }, { data: strava }] = await Promise.all([
+      const [{ data: { user } }, { data: strava }, { data: prof }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('strava_tokens').select('user_id').maybeSingle(),
+        supabase.from('runner_profiles').select('race_distance, weekly_km, pb_5k, best_5k_pace').maybeSingle(),
       ])
       setEmail(user?.email ?? '')
       setStravaConnected(!!strava)
+      setProfile(prof)
       setLoading(false)
     }
     load()
   }, [])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   async function disconnectStrava() {
     const supabase = createClient()
@@ -94,15 +119,35 @@ export default function SettingsPage() {
     </div>
   )
 
+  const firstName = (email.split('@')[0].split(/[._-]/)[0] || 'Biegacz')
+  const nameCap = firstName.charAt(0).toUpperCase() + firstName.slice(1)
+  const pb5 = profile?.pb_5k ?? profile?.best_5k_pace ?? '—'
+
   return (
-    <div className="max-w-2xl animate-fade-up">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-5xl font-black mb-1"
-          style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-          Ustawienia
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--text-2)' }}>Konto i integracje</p>
+    <div className="animate-fade-up">
+      {/* Back + header */}
+      <Link href="/dashboard" className="press flex items-center"
+        style={{ gap: 8, padding: '16px 0 10px', font: '600 13px var(--font-barlow)', color: 'var(--text-2)', textDecoration: 'none' }}>
+        <span style={{ fontSize: 18 }}>‹</span> Dziś
+      </Link>
+      <div className="cond" style={{ fontSize: 30, marginBottom: 16 }}>Ustawienia</div>
+
+      {/* Profile card */}
+      <div className="flex items-center" style={{ gap: 14, borderRadius: 20, padding: 18, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12 }}>
+        <div className="flex items-center justify-center" style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--green-dim)', fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 22, color: 'var(--green)' }}>
+          {nameCap.charAt(0)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ font: '700 16px var(--font-barlow)' }}>{nameCap}</div>
+          <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</div>
+        </div>
+      </div>
+
+      {/* Profile stats */}
+      <div className="flex" style={{ gap: 8, marginBottom: 12 }}>
+        <ProfileStat label="Cel" value={DISTANCE_LABELS[profile?.race_distance ?? ''] ?? '—'} accent />
+        <ProfileStat label="Km/tydz." value={profile?.weekly_km ? `${profile.weekly_km} km` : '—'} />
+        <ProfileStat label="PB 5k" value={pb5} />
       </div>
 
       <div className="flex flex-col gap-4">
@@ -188,6 +233,12 @@ export default function SettingsPage() {
         </Section>
 
       </div>
+
+      {/* Logout */}
+      <button onClick={handleLogout} className="press"
+        style={{ width: '100%', textAlign: 'center', marginTop: 20, padding: 12, background: 'none', border: 'none', font: '600 14px var(--font-barlow)', color: 'var(--text-3)' }}>
+        Wyloguj się
+      </button>
 
       {/* ── Delete modal ── */}
       {deleteModal && (
