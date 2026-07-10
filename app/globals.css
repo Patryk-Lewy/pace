@@ -88,6 +88,19 @@ html, body {
   text-transform: uppercase;
 }
 
+/* Skeleton shimmer for route loading states */
+@keyframes shimmer {
+  0%   { opacity: .55; }
+  50%  { opacity: 1; }
+  100% { opacity: .55; }
+}
+.skel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
 /* App shell: full-height mobile column with bottom-tab clearance */
 .app-shell {
   min-height: 100vh;
