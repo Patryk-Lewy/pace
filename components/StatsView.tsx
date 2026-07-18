@@ -114,6 +114,7 @@ export default function StatsView({ token, activities, planWorkouts, raceDistanc
   hrZones: Json | null
 }) {
   const router = useRouter()
+  const [view, setView] = useState<'overview' | 'history'>('overview')
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
@@ -188,91 +189,132 @@ export default function StatsView({ token, activities, planWorkouts, raceDistanc
       {/* Has data (Strava connected or manual GPS runs) */}
       {(token || activities.length > 0) && (
         <>
-          {/* Two big totals */}
-          <div className="flex" style={{ gap: 10, marginBottom: 12 }}>
-            <div style={{ flex: 1, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Dystans / 30 dni</div>
-              <div className="cond" style={{ fontSize: 34, marginTop: 4, color: 'var(--green)' }}>
-                {km30.toFixed(0)}<span style={{ fontSize: 15, color: 'var(--text-2)' }}> km</span>
-              </div>
-            </div>
-            <div style={{ flex: 1, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Biegi</div>
-              <div className="cond" style={{ fontSize: 34, marginTop: 4 }}>{totalRuns}</div>
-            </div>
-          </div>
-
-          {/* Form trend — Riegel projection to goal distance */}
-          <FormChart activities={activities} raceDistance={raceDistance} raceGoalTime={raceGoalTime} />
-
-          {/* Estimated PBs from history */}
-          <EstimatedPBs activities={activities} />
-
-          {/* Charts */}
-          {activities.length >= 2 && (
-            <div className="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-2">
-              <KmBarChart activities={activities} />
-              <PaceLineChart activities={activities} />
-            </div>
-          )}
-
-          {/* Sync button — Strava only */}
-          {token && (
-            <div className="mb-6 flex items-center gap-4">
-              <button onClick={handleSync} disabled={syncing}
-                className="rounded-xl px-5 py-2.5 text-sm font-bold transition-all"
+          {/* Segmented view switcher */}
+          <div className="flex" style={{ borderRadius: 14, padding: 4, background: 'var(--surface2)', marginBottom: 14, gap: 4 }}>
+            {([['overview', 'Przegląd'], ['history', 'Historia']] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)} className="press"
                 style={{
-                  background: syncing ? 'var(--surface2)' : 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: syncing ? 'var(--text-3)' : 'var(--text-2)',
+                  flex: 1, borderRadius: 10, padding: '10px 0', border: 'none',
+                  background: view === v ? 'var(--green)' : 'transparent',
+                  color: view === v ? '#000' : 'var(--text-2)',
+                  font: '700 13px var(--font-barlow)',
                 }}>
-                {syncing ? '⟳ Synchronizowanie...' : '⟳ Synchronizuj aktywności'}
+                {label}{v === 'history' ? ` (${totalRuns})` : ''}
               </button>
-              {syncMsg && <p className="text-sm" style={{ color: 'var(--green)' }}>{syncMsg}</p>}
-            </div>
-          )}
-
-          {/* HR Zones */}
-          {activities.some(a => a.avg_heartrate) && (
-            <HRZonesSection activities={activities} maxHr={maxHr} hrZones={hrZones} />
-          )}
-
-          {/* Weekly groups */}
-          {weeks.length === 0 && (
-            <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-                Brak biegów. Kliknij „Synchronizuj aktywności" aby pobrać dane ze Strava.
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {weeks.map((week, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                {/* Week header */}
-                <div className="px-5 py-3 flex items-center justify-between"
-                  style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-                    {week.label}
-                  </span>
-                  <div className="flex gap-4 text-xs" style={{ color: 'var(--text-2)' }}>
-                    <span><b style={{ color: 'var(--green)' }}>{week.totalKm.toFixed(1)}</b> km</span>
-                    <span><b>{formatDuration(week.totalTime)}</b></span>
-                    {week.avgPace > 0 && <span>śr. <b>{formatPace(week.avgPace)}</b>/km</span>}
-                  </div>
-                </div>
-
-                {/* Activities */}
-                <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                  {week.activities.map(act => (
-                    <ActivityRow key={act.id} activity={act} workouts={planWorkouts} onChanged={() => router.refresh()} />
-                  ))}
-                </div>
-              </div>
             ))}
           </div>
+
+          {view === 'overview' && (
+            <>
+              {/* Two big totals */}
+              <div className="flex" style={{ gap: 10, marginBottom: 12 }}>
+                <div style={{ flex: 1, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Dystans / 30 dni</div>
+                  <div className="cond" style={{ fontSize: 34, marginTop: 4, color: 'var(--green)' }}>
+                    {km30.toFixed(0)}<span style={{ fontSize: 15, color: 'var(--text-2)' }}> km</span>
+                  </div>
+                </div>
+                <div style={{ flex: 1, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Biegi</div>
+                  <div className="cond" style={{ fontSize: 34, marginTop: 4 }}>{totalRuns}</div>
+                </div>
+              </div>
+
+              {/* Form trend — Riegel projection to goal distance */}
+              <FormChart activities={activities} raceDistance={raceDistance} raceGoalTime={raceGoalTime} />
+
+              {/* Estimated PBs from history */}
+              <EstimatedPBs activities={activities} />
+
+              {/* Charts */}
+              {activities.length >= 2 && (
+                <div className="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-2">
+                  <KmBarChart activities={activities} />
+                  <PaceLineChart activities={activities} />
+                </div>
+              )}
+
+              {/* HR Zones */}
+              {activities.some(a => a.avg_heartrate) && (
+                <HRZonesSection activities={activities} maxHr={maxHr} hrZones={hrZones} />
+              )}
+            </>
+          )}
+
+          {view === 'history' && (
+            <>
+              {/* Sync button — Strava only */}
+              {token && (
+                <div className="mb-4 flex items-center gap-4">
+                  <button onClick={handleSync} disabled={syncing}
+                    className="rounded-xl px-5 py-2.5 text-sm font-bold transition-all"
+                    style={{
+                      background: syncing ? 'var(--surface2)' : 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: syncing ? 'var(--text-3)' : 'var(--text-2)',
+                    }}>
+                    {syncing ? '⟳ Synchronizowanie...' : '⟳ Synchronizuj aktywności'}
+                  </button>
+                  {syncMsg && <p className="text-sm" style={{ color: 'var(--green)' }}>{syncMsg}</p>}
+                </div>
+              )}
+
+              {weeks.length === 0 && (
+                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <p className="text-sm" style={{ color: 'var(--text-2)' }}>
+                    Brak biegów. Kliknij „Synchronizuj aktywności" aby pobrać dane ze Strava.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {weeks.map((week, i) => (
+                  <WeekSection key={week.label} week={week} defaultOpen={i === 0}
+                    planWorkouts={planWorkouts} onChanged={() => router.refresh()} />
+                ))}
+              </div>
+            </>
+          )}
         </>
+      )}
+    </div>
+  )
+}
+
+/** Collapsible week of activities — only the latest week starts expanded. */
+function WeekSection({ week, defaultOpen, planWorkouts, onChanged }: {
+  week: WeekGroup
+  defaultOpen: boolean
+  planWorkouts: PlanWorkoutLite[]
+  onChanged: () => void
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <button onClick={() => setOpen(o => !o)} className="press flex items-center justify-between"
+        style={{ width: '100%', padding: '13px 20px', background: 'var(--surface2)', border: 'none', textAlign: 'left', borderBottom: open ? '1px solid var(--border)' : 'none' }}>
+        <span className="flex items-center" style={{ gap: 8 }}>
+          <span style={{ font: '600 11px var(--font-barlow)', letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-3)' }}>
+            {week.label}
+          </span>
+          <span style={{ font: '600 11px var(--font-barlow)', color: 'var(--text-3)' }}>· {week.activities.length} 🏃</span>
+        </span>
+        <span className="flex items-center" style={{ gap: 12 }}>
+          <span className="flex" style={{ gap: 12, font: '400 12px var(--font-barlow)', color: 'var(--text-2)' }}>
+            <span><b style={{ color: 'var(--green)' }}>{week.totalKm.toFixed(1)}</b> km</span>
+            {week.avgPace > 0 && <span><b>{formatPace(week.avgPace)}</b>/km</span>}
+          </span>
+          <span style={{ color: 'var(--text-3)', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
+        </span>
+      </button>
+
+      {open && (
+        <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+          {week.activities.map(act => (
+            <ActivityRow key={act.id} activity={act} workouts={planWorkouts} onChanged={onChanged} />
+          ))}
+        </div>
       )}
     </div>
   )
@@ -284,6 +326,7 @@ function ActivityRow({ activity: a, workouts, onChanged }: {
   onChanged: () => void
 }) {
   const [manageOpen, setManageOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const distKm = ((a.distance_m ?? 0) / 1000).toFixed(2)
   const date = new Date(a.start_date).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })
   const matched = workouts.find(w => w.id === a.matched_workout_id)
@@ -307,15 +350,24 @@ function ActivityRow({ activity: a, workouts, onChanged }: {
         </div>
       </div>
 
-      {/* AI comment */}
+      {/* AI comment — clamped to 2 lines, tap to expand */}
       {a.ai_comment && (
-        <div className="rounded-xl px-4 py-3 mt-2"
-          style={{ background: 'var(--green-dim)', border: '1px solid rgba(0,230,118,0.2)' }}>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--green)' }}>
-            🤖 PACE AI
+        <button onClick={() => setAiOpen(o => !o)} className="rounded-xl px-4 py-3 mt-2 text-left"
+          style={{ width: '100%', background: 'var(--green-dim)', border: '1px solid rgba(0,230,118,0.2)', cursor: 'pointer' }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1 flex items-center justify-between" style={{ color: 'var(--green)' }}>
+            <span>🤖 PACE AI</span>
+            <span style={{ fontSize: 10 }}>{aiOpen ? '▲' : '▼'}</span>
           </p>
-          <p className="text-sm" style={{ color: 'var(--text-2)' }}>{a.ai_comment}</p>
-        </div>
+          <p className="text-sm" style={{
+            color: 'var(--text-2)',
+            ...(aiOpen ? {} : {
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical' as const,
+              overflow: 'hidden',
+            }),
+          }}>{a.ai_comment}</p>
+        </button>
       )}
 
       {/* Assignment + actions */}
