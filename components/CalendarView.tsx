@@ -116,7 +116,15 @@ export default function CalendarView({ plan, workouts }: { plan: TrainingPlan; w
           const inMonth = cell.getMonth() === monthYear.month
           const isToday = key === todayKey
           const isSelected = key === selectedKey
-          const dotColor = workout && workout.workout_type !== 'rest' ? metaFor(workout.workout_type).color : null
+          // Dot encodes status first, then type: done = green, skipped = grey,
+          // planned = the workout-type colour.
+          const dotColor = workout && workout.workout_type !== 'rest'
+            ? workout.status === 'completed'
+              ? 'var(--green)'
+              : workout.status === 'skipped'
+                ? 'var(--text-3)'
+                : metaFor(workout.workout_type).color
+            : null
 
           return (
             <button key={key} onClick={() => setSelectedKey(key)} className="press"
@@ -137,6 +145,20 @@ export default function CalendarView({ plan, workouts }: { plan: TrainingPlan; w
             </button>
           )
         })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex justify-center" style={{ gap: 14, marginTop: 6 }}>
+        {[
+          ['var(--blue)', 'easy/long'],
+          ['var(--orange)', 'tempo/int.'],
+          ['var(--green)', 'ukończony'],
+        ].map(([color, label]) => (
+          <span key={label} className="flex items-center" style={{ gap: 5 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: color, display: 'inline-block' }} />
+            <span style={{ font: '500 10px var(--font-barlow)', color: 'var(--text-3)' }}>{label}</span>
+          </span>
+        ))}
       </div>
 
       <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
