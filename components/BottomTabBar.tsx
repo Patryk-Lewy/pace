@@ -7,7 +7,7 @@ const ACTIVE = 'var(--green)'
 const IDLE = 'rgba(255,255,255,.32)'
 
 // Routes that render immersively without the tab bar (own back button).
-const HIDDEN_ON = ['/settings', '/race', '/run', '/onboarding', '/coach']
+const HIDDEN_ON = ['/race', '/run', '/onboarding', '/coach']
 
 function isHidden(pathname: string): boolean {
   if (HIDDEN_ON.some(r => pathname.startsWith(r))) return true
@@ -16,7 +16,7 @@ function isHidden(pathname: string): boolean {
   return false
 }
 
-function Icon({ name }: { name: 'home' | 'plan' | 'calendar' | 'stats' }) {
+function Icon({ name }: { name: 'home' | 'plan' | 'calendar' | 'stats' | 'profile' }) {
   const common = {
     width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none',
     stroke: 'currentColor', strokeWidth: 2,
@@ -31,6 +31,8 @@ function Icon({ name }: { name: 'home' | 'plan' | 'calendar' | 'stats' }) {
       return <svg {...common}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
     case 'stats':
       return <svg {...common}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+    case 'profile':
+      return <svg {...common}><circle cx="12" cy="7" r="4" /><path d="M20 21v-1a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v1" /></svg>
   }
 }
 
@@ -43,6 +45,7 @@ export default function BottomTabBar() {
     { href: '/plan', label: 'Plan', icon: 'plan' as const, active: pathname.startsWith('/plan') },
     { href: '/calendar', label: 'Kalendarz', icon: 'calendar' as const, active: pathname.startsWith('/calendar') },
     { href: '/stats', label: 'Statystyki', icon: 'stats' as const, active: pathname.startsWith('/stats') },
+    { href: '/settings', label: 'Profil', icon: 'profile' as const, active: pathname.startsWith('/settings') },
   ]
 
   return (
@@ -80,7 +83,7 @@ export default function BottomTabBar() {
 }
 
 function Tab({ href, label, icon, active }: {
-  href: string; label: string; icon: 'home' | 'plan' | 'calendar' | 'stats'; active: boolean
+  href: string; label: string; icon: 'home' | 'plan' | 'calendar' | 'stats' | 'profile'; active: boolean
 }) {
   return (
     <Link

@@ -479,7 +479,7 @@ function HRZonesSection({ activities, maxHr, hrZones }: { activities: Activity[]
       </div>
 
       <p style={{ font: '500 10px var(--font-barlow)', color: 'var(--text-3)', marginTop: 10 }}>
-        Max HR: {maxHR} bpm · {source === 'custom' ? 'strefy własne' : source === 'max_hr' ? 'Twój max HR' : 'auto z biegów'} — zmień w Ustawieniach
+        Max HR: {maxHR} bpm · {source === 'custom' ? 'strefy własne' : source === 'max_hr' ? 'Twój max HR' : 'auto z biegów'} — zmień w Profilu
       </p>
     </div>
   )

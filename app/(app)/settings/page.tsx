@@ -326,12 +326,11 @@ export default function SettingsPage() {
 
   return (
     <div className="animate-fade-up">
-      {/* Back + header */}
-      <Link href="/dashboard" className="press flex items-center"
-        style={{ gap: 8, padding: '16px 0 10px', font: '600 13px var(--font-barlow)', color: 'var(--text-2)', textDecoration: 'none' }}>
-        <span style={{ fontSize: 18 }}>‹</span> Dziś
-      </Link>
-      <div className="cond" style={{ fontSize: 30, marginBottom: 16 }}>Ustawienia</div>
+      {/* Header — top-level tab */}
+      <div style={{ padding: '20px 0 16px' }}>
+        <div className="cond" style={{ fontSize: 30 }}>Profil</div>
+        <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)', marginTop: 2 }}>Konto, strefy i integracje</div>
+      </div>
 
       {/* Profile card */}
       <Link href="/plan" className="press flex items-center" style={{ gap: 14, borderRadius: 20, padding: 18, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12, textDecoration: 'none' }}>
