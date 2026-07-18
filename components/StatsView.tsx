@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatPace, formatDuration } from '@/lib/strava'
+import { predictRaceTime, formatTime } from '@/lib/pace-calculator'
+import FormChart from '@/components/FormChart'
 import { KmBarChart, PaceLineChart } from '@/components/ProgressCharts'
 import { estimateMaxHR, getZoneRanges, buildZoneDistribution } from '@/lib/heart-rate-zones'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
@@ -60,10 +62,53 @@ type PlanWorkoutLite = { id: string; title: string; week_number: number; day_of_
 
 const DAY_SHORT: Record<string, string> = { mon: 'Pn', tue: 'Wt', wed: 'Śr', thu: 'Cz', fri: 'Pt', sat: 'Sb', sun: 'Nd' }
 
-export default function StatsView({ token, activities, planWorkouts }: {
+/** Best estimated PB at a target distance from runs at least that long (Riegel). */
+function bestEstimate(activities: Activity[], targetKm: number): { sec: number; date: string } | null {
+  let best: { sec: number; date: string } | null = null
+  for (const a of activities) {
+    if (!a.distance_m || !a.moving_time_s) continue
+    const distKm = a.distance_m / 1000
+    if (distKm < targetKm) continue
+    const sec = predictRaceTime(a.moving_time_s, distKm, targetKm)
+    if (sec > 0 && (!best || sec < best.sec)) best = { sec, date: a.start_date }
+  }
+  return best
+}
+
+function EstimatedPBs({ activities }: { activities: Activity[] }) {
+  const pb5 = bestEstimate(activities, 5)
+  const pb10 = bestEstimate(activities, 10)
+  if (!pb5 && !pb10) return null
+
+  const rows = [
+    pb5 && { label: 'Rekord 5 km', ...pb5 },
+    pb10 && { label: 'Rekord 10 km', ...pb10 },
+  ].filter(Boolean) as { label: string; sec: number; date: string }[]
+
+  return (
+    <div className="flex flex-col" style={{ gap: 10, marginBottom: 12 }}>
+      {rows.map(r => (
+        <div key={r.label} className="flex items-center" style={{ gap: 12, borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-center" style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--green-dim)', fontSize: 20 }}>🏆</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ font: '700 14px var(--font-barlow)' }}>{r.label}</div>
+            <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>
+              {new Date(r.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })} · szacowany z biegu
+            </div>
+          </div>
+          <div className="cond" style={{ fontSize: 24, color: 'var(--green)' }}>{formatTime(Math.round(r.sec))}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default function StatsView({ token, activities, planWorkouts, raceDistance, raceGoalTime }: {
   token: StravaToken | null
   activities: Activity[]
   planWorkouts: PlanWorkoutLite[]
+  raceDistance: string | null
+  raceGoalTime: string | null
 }) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
@@ -153,6 +198,12 @@ export default function StatsView({ token, activities, planWorkouts }: {
               <div className="cond" style={{ fontSize: 34, marginTop: 4 }}>{totalRuns}</div>
             </div>
           </div>
+
+          {/* Form trend — Riegel projection to goal distance */}
+          <FormChart activities={activities} raceDistance={raceDistance} raceGoalTime={raceGoalTime} />
+
+          {/* Estimated PBs from history */}
+          <EstimatedPBs activities={activities} />
 
           {/* Charts */}
           {activities.length >= 2 && (

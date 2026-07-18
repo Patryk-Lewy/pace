@@ -11,13 +11,14 @@ export default async function StatsPage() {
   if (!session) redirect('/login')
   const user = session.user
 
-  const [{ data: token }, { data: acts }, { data: plan }] = await Promise.all([
+  const [{ data: token }, { data: acts }, { data: plan }, { data: profile }] = await Promise.all([
     supabase.from('strava_tokens').select('*').eq('user_id', user.id).maybeSingle(),
     supabase.from('activities')
       .select('id, name, start_date, distance_m, moving_time_s, avg_pace_s_per_km, avg_heartrate, max_heartrate, total_elevation, ai_comment, matched_workout_id')
       .eq('user_id', user.id).eq('hidden', false).order('start_date', { ascending: false }).limit(200),
     supabase.from('training_plans').select('id').eq('user_id', user.id).eq('status', 'active')
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('runner_profiles').select('race_distance, race_goal_time').eq('id', user.id).maybeSingle(),
   ])
 
   let planWorkouts: { id: string; title: string; week_number: number; day_of_week: string }[] = []
@@ -35,6 +36,8 @@ export default async function StatsPage() {
       token={token ?? null}
       activities={(acts ?? []) as unknown as Activity[]}
       planWorkouts={planWorkouts}
+      raceDistance={profile?.race_distance ?? null}
+      raceGoalTime={profile?.race_goal_time ?? null}
     />
   )
 }
