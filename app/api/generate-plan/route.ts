@@ -28,11 +28,25 @@ function normalizeDay(raw: string): string {
   return map[d] ?? d.slice(0, 3)
 }
 
+// Fallback plan lengths when no race date is set
 const DISTANCE_WEEKS: Record<string, number> = {
   '5km': 6,
   '10km': 8,
   'half': 8,
   'marathon': 8,
+}
+
+/**
+ * Plan length driven by the actual race date: weeks until race, clamped to a
+ * sensible 4–16 range so tapering lands right before the start. Falls back to
+ * the per-distance default when the date is missing or in the past.
+ */
+function planWeeks(raceDistance: string, raceDate: string | null): number {
+  const fallback = DISTANCE_WEEKS[raceDistance] ?? 8
+  if (!raceDate) return fallback
+  const days = Math.floor((new Date(raceDate).getTime() - Date.now()) / 86_400_000)
+  if (days < 21) return fallback // race too close for a fresh plan — keep default
+  return Math.min(Math.max(Math.floor(days / 7), 4), 16)
 }
 
 const DISTANCE_LABELS: Record<string, string> = {
@@ -57,7 +71,7 @@ function buildPrompt(profile: {
   injury_history: string | null
   additional_goal: string | null
 }): string {
-  const weeks = DISTANCE_WEEKS[profile.race_distance] ?? 12
+  const weeks = planWeeks(profile.race_distance, profile.race_date)
   const distanceLabel = DISTANCE_LABELS[profile.race_distance] ?? profile.race_distance
   const days = (profile.available_days ?? []).join(', ') || 'pon, śr, pt, ndz'
 
@@ -109,11 +123,12 @@ ${goalTimeSection}
 Podaj konkretne tempa (min:sek/km) dopasowane do poziomu biegacza.
 
 ## Wymagania planu
-- Długość: ${weeks} tygodni
+- Długość: ${weeks} tygodni${profile.race_date ? ` — plan kończy się taperingiem tuż przed zawodami (${profile.race_date})` : ''}
 - Fazy: Baza (25%), Budowanie (37%), Szczyt (25%), Tapering (13%)
 - Typy treningów: easy_run, long_run, tempo, intervals, rest
 - Stopniowe zwiększanie objętości (zasada 10%/tydzień)
 - Uwzględnij kontuzje w doborze treningów
+- Opisy treningów ZWIĘZŁE: maksymalnie 1 zdanie
 
 ## Format JSON (zwróć WYŁĄCZNIE poprawny JSON, bez komentarzy):
 {
@@ -214,10 +229,12 @@ export async function POST(request: Request) {
       lockedCount = count ?? 0
     }
 
-    // Call Claude (Haiku — szybszy, mieści się w 60s limicie Vercel Hobby)
+    // Call Claude (Haiku — szybszy, mieści się w 60s limicie Vercel Hobby).
+    // 12000 tokens covers a 16-week plan with the concise 1-sentence
+    // descriptions the prompt now enforces.
     const message = await getAnthropic().messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 8192,
+      max_tokens: 12000,
       messages: [{ role: 'user', content: buildPrompt(safeProfile) }],
     })
 
