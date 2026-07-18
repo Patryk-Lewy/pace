@@ -360,39 +360,12 @@ export default function SettingsPage() {
 
       <div className="flex flex-col gap-4">
 
-        {/* ── Plan params hint ── */}
-        <div className="rounded-2xl p-4 flex items-center justify-between gap-4"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div>
-            <p className="text-sm font-bold">Parametry treningowe</p>
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Cel, dystans, dni i rekordy edytujesz teraz przy planie.
-            </p>
-          </div>
-          <Link href="/plan"
-            className="rounded-xl px-4 py-2 text-sm font-black uppercase tracking-widest flex-shrink-0"
-            style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', background: 'var(--green)', color: '#000' }}>
-            Plan →
-          </Link>
-        </div>
-
-        {/* ── Konto ── */}
-        <Section title="Konto">
-          <Field label="Email">
-            <input value={email} readOnly style={{ ...inputStyle, opacity: 0.5 }} />
-          </Field>
-          <div className="flex flex-col gap-2">
-            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Aby zmienić hasło, wyloguj się i użyj opcji „Resetuj hasło" na stronie logowania.
-            </p>
-            <button
-              onClick={() => setDeleteModal(true)}
-              className="rounded-xl px-4 py-2.5 text-sm font-semibold self-start transition-all"
-              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}>
-              Usuń konto
-            </button>
-          </div>
-        </Section>
+        {/* ── Plan params — slim link row ── */}
+        <Link href="/plan" className="press flex items-center justify-between"
+          style={{ borderRadius: 16, padding: '13px 16px', background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
+          <span style={{ font: '600 14px var(--font-barlow)', color: 'var(--text)' }}>🎯 Parametry treningowe</span>
+          <span style={{ font: '700 12px var(--font-barlow)', color: 'var(--green)' }}>Plan ›</span>
+        </Link>
 
         {/* ── Integracje ── */}
         <Section title="Integracje">
@@ -458,10 +431,14 @@ export default function SettingsPage() {
 
       </div>
 
-      {/* Logout */}
+      {/* Logout + delete */}
       <button onClick={handleLogout} className="press"
         style={{ width: '100%', textAlign: 'center', marginTop: 20, padding: 12, background: 'none', border: 'none', font: '600 14px var(--font-barlow)', color: 'var(--text-3)' }}>
         Wyloguj się
+      </button>
+      <button onClick={() => setDeleteModal(true)} className="press"
+        style={{ width: '100%', textAlign: 'center', padding: '4px 12px 12px', background: 'none', border: 'none', font: '500 12px var(--font-barlow)', color: 'rgba(239,68,68,.6)' }}>
+        Usuń konto
       </button>
 
       {/* ── Delete modal ── */}
