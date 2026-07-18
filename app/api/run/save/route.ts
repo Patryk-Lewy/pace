@@ -89,7 +89,13 @@ export async function POST(request: Request) {
         console.error('[run/save] adaptation failed:', err))
     }
 
-    return NextResponse.json({ activity_id: saved.id, matched: true, workout_id: matched.id, comment })
+    return NextResponse.json({
+      activity_id: saved.id,
+      matched: true,
+      workout_id: matched.id,
+      workout_title: matched.title,
+      comment,
+    })
   } catch (err) {
     console.error('[run/save] error:', err)
     return NextResponse.json({ error: 'Błąd zapisu biegu' }, { status: 500 })

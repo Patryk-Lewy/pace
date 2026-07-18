@@ -6,8 +6,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
 
-type Phase = 'locating' | 'tracking' | 'denied' | 'saving'
+type Phase = 'locating' | 'tracking' | 'denied' | 'saving' | 'done'
+
+type RunSummary = {
+  distanceM: number
+  elapsed: number
+  avgPace: number | null
+  comment: string | null
+  workoutTitle: string | null
+}
 
 function fmtTime(el: number): string {
   const h = Math.floor(el / 3600)
@@ -99,6 +108,8 @@ export default function RunPage() {
   const distKm = distanceM / 1000
   const avgPace = distKm > 0.05 ? Math.round(elapsed / distKm) : null
 
+  const [summary, setSummary] = useState<RunSummary | null>(null)
+
   async function stopAndSave() {
     if (timer.current) clearInterval(timer.current)
     if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current)
@@ -108,8 +119,10 @@ export default function RunPage() {
     // Nothing meaningful recorded → just leave without saving
     if (distanceM < 100 || elapsed < 5) { router.push('/dashboard'); return }
 
+    let comment: string | null = null
+    let workoutTitle: string | null = null
     try {
-      await fetch('/api/run/save', {
+      const res = await fetch('/api/run/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,8 +133,76 @@ export default function RunPage() {
           start_date: startIso.current || new Date().toISOString(),
         }),
       })
+      const data = await res.json().catch(() => ({}))
+      comment = data?.comment ?? null
+      workoutTitle = data?.workout_title ?? null
     } catch { /* saved-run failure shouldn't trap the user on this screen */ }
-    router.push('/stats')
+
+    setSummary({ distanceM, elapsed, avgPace, comment, workoutTitle })
+    setPhase('done')
+  }
+
+  if (phase === 'done' && summary) {
+    const sumKm = summary.distanceM / 1000
+    const shareData: ShareCardData = {
+      title: summary.workoutTitle ?? 'Bieg PACE',
+      typeLabel: 'Bieg',
+      emoji: '🏃',
+      distanceText: sumKm.toFixed(2),
+      pace: fmtPace(summary.avgPace),
+      duration: fmtTime(summary.elapsed),
+      heartrate: null,
+      maxHeartrate: null,
+      elevation: null,
+      dateLabel: new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }),
+      weekLabel: null,
+      accentColor: '#00e676',
+      fromStrava: false,
+    }
+    return (
+      <div style={{ ...overlay, overflowY: 'auto' }}>
+        <div className="kick text-center" style={{ fontSize: 11, color: 'var(--green)', marginTop: 8 }}>
+          🏁 Bieg zakończony
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 260 }}>
+          <div className="flex items-baseline" style={{ gap: 6 }}>
+            <span className="cond" style={{ fontSize: 76, color: 'var(--green)' }}>{sumKm.toFixed(2)}</span>
+            <span className="cond" style={{ fontSize: 26, color: 'var(--text-2)' }}>km</span>
+          </div>
+          <div className="flex" style={{ gap: 28, marginTop: 18 }}>
+            <div className="text-center">
+              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Czas</div>
+              <div className="cond" style={{ fontSize: 30, marginTop: 3 }}>{fmtTime(summary.elapsed)}</div>
+            </div>
+            <div className="text-center">
+              <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Śr. tempo</div>
+              <div className="cond" style={{ fontSize: 30, marginTop: 3 }}>{fmtPace(summary.avgPace)}<span style={{ fontSize: 14 }}>/km</span></div>
+            </div>
+          </div>
+          {summary.workoutTitle && (
+            <div style={{ marginTop: 16, font: '700 12px var(--font-barlow)', color: 'var(--green)', background: 'var(--green-dim)', borderRadius: 20, padding: '6px 14px' }}>
+              ✓ Zaliczony: {summary.workoutTitle}
+            </div>
+          )}
+        </div>
+
+        {summary.comment && (
+          <div style={{ borderRadius: 18, padding: '14px 16px', background: 'var(--green-dim)', border: '1px solid rgba(0,230,118,.25)', marginBottom: 14 }}>
+            <div className="kick" style={{ fontSize: 9, color: 'var(--green)', marginBottom: 6 }}>🤖 PACE AI</div>
+            <p style={{ font: '400 13px/1.5 var(--font-barlow)', color: 'var(--text-2)', margin: 0 }}>{summary.comment}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col" style={{ gap: 10 }}>
+          <ShareWorkoutButton data={shareData} />
+          <button onClick={() => router.push('/dashboard')} className="press" style={{
+            width: '100%', borderRadius: 16, padding: 15, background: 'var(--green)', color: '#000',
+            font: '800 15px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', border: 'none',
+          }}>Wróć do Dziś</button>
+        </div>
+      </div>
+    )
   }
 
   if (phase === 'denied') {
