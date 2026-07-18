@@ -16,6 +16,7 @@ type RunSummary = {
   avgPace: number | null
   comment: string | null
   workoutTitle: string | null
+  splits: number[]
 }
 
 function fmtTime(el: number): string {
@@ -79,6 +80,15 @@ export default function RunPage() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
   const watchId = useRef<number | null>(null)
 
+  // Splits, route capture and auto-pause
+  const splitsRef = useRef<number[]>([])
+  const lastSplitElapsed = useRef(0)
+  const routeRef = useRef<[number, number][]>([])
+  const lastRoutePoint = useRef<{ lat: number; lng: number } | null>(null)
+  const lastMovementAt = useRef<number>(Date.now())
+  const autoPaused = useRef(false)
+  const gpsActive = useRef(false)
+
   // Voice coaching — announce every full km; preference persists
   const [voiceOn, setVoiceOn] = useState(true)
   const voiceRef = useRef(true)
@@ -95,8 +105,11 @@ export default function RunPage() {
     const km = Math.floor(distanceM / 1000)
     if (km >= 1 && km > lastKmAnnounced.current) {
       lastKmAnnounced.current = km
+      const el = elapsedRef.current
+      // Record the split for this km
+      splitsRef.current.push(el - lastSplitElapsed.current)
+      lastSplitElapsed.current = el
       if (voiceRef.current) {
-        const el = elapsedRef.current
         const avg = distanceM > 50 ? Math.round(el / (distanceM / 1000)) : null
         const mins = Math.floor(el / 60)
         speak(`Kilometr ${km}. Czas ${mins} ${mins === 1 ? 'minuta' : 'minut'}. Średnie tempo ${spokenPace(avg)} na kilometr.`)
@@ -106,10 +119,18 @@ export default function RunPage() {
 
   useEffect(() => { runningRef.current = running }, [running])
 
-  // Timer: count elapsed seconds only while running
+  // Timer: count elapsed seconds only while running; auto-pause after 12s
+  // without GPS movement (resumed automatically when movement returns).
   useEffect(() => {
     timer.current = setInterval(() => {
-      if (runningRef.current) setElapsed(e => e + 1)
+      if (runningRef.current) {
+        setElapsed(e => e + 1)
+        if (gpsActive.current && Date.now() - lastMovementAt.current > 12_000) {
+          autoPaused.current = true
+          setRunning(false)
+          speak('Auto-pauza')
+        }
+      }
     }, 1000)
     return () => { if (timer.current) clearInterval(timer.current) }
   }, [])
@@ -128,7 +149,7 @@ export default function RunPage() {
 
         const prev = lastFix.current
         lastFix.current = { lat, lng, t }
-        if (!prev || !runningRef.current) return
+        if (!prev) { lastMovementAt.current = Date.now(); gpsActive.current = true; return }
 
         const seg = haversine(prev, { lat, lng })
         const dt = (t - prev.t) / 1000
@@ -136,10 +157,33 @@ export default function RunPage() {
         const speed = seg / dt // m/s
         if (speed > 12) return // >43 km/h — GPS jump, discard
 
+        gpsActive.current = true
+
+        // Movement tracking (also while paused — drives auto-resume)
+        if (seg >= 3) {
+          lastMovementAt.current = Date.now()
+          if (autoPaused.current && !runningRef.current) {
+            autoPaused.current = false
+            setRunning(true)
+            speak('Wznawiam')
+          }
+        }
+
+        if (!runningRef.current) return
+
         if (seg >= 1) {
           distanceRef.current += seg
           setDistanceM(distanceRef.current)
           setCurPace(seg > 0 ? Math.round((dt / seg) * 1000) : null)
+
+          // Route capture: a point every ≥15 m, capped to keep payload small
+          const lp = lastRoutePoint.current
+          if (!lp || haversine(lp, { lat, lng }) >= 15) {
+            if (routeRef.current.length < 2000) {
+              routeRef.current.push([Number(lat.toFixed(5)), Number(lng.toFixed(5))])
+              lastRoutePoint.current = { lat, lng }
+            }
+          }
         }
       },
       () => setPhase('denied'),
@@ -175,6 +219,8 @@ export default function RunPage() {
           elapsed_time_s: elapsed,
           avg_pace_s_per_km: avgPace,
           start_date: startIso.current || new Date().toISOString(),
+          splits: splitsRef.current,
+          route: routeRef.current,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -182,7 +228,7 @@ export default function RunPage() {
       workoutTitle = data?.workout_title ?? null
     } catch { /* saved-run failure shouldn't trap the user on this screen */ }
 
-    setSummary({ distanceM, elapsed, avgPace, comment, workoutTitle })
+    setSummary({ distanceM, elapsed, avgPace, comment, workoutTitle, splits: splitsRef.current })
     setPhase('done')
   }
 
@@ -230,6 +276,24 @@ export default function RunPage() {
             </div>
           )}
         </div>
+
+        {summary.splits.length > 0 && (
+          <div style={{ borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 14 }}>
+            <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)', padding: '12px 16px 4px' }}>Międzyczasy</div>
+            {summary.splits.map((s, i) => {
+              const best = Math.min(...summary.splits)
+              return (
+                <div key={i} className="flex items-center justify-between"
+                  style={{ padding: '9px 16px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text-2)' }}>{i + 1} km</span>
+                  <span className="cond" style={{ fontSize: 17, color: s === best ? 'var(--green)' : 'var(--text)' }}>
+                    {fmtPace(s)}{s === best ? ' ⚡' : ''}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {summary.comment && (
           <div style={{ borderRadius: 18, padding: '14px 16px', background: 'var(--green-dim)', border: '1px solid rgba(0,230,118,.25)', marginBottom: 14 }}>
@@ -313,7 +377,13 @@ export default function RunPage() {
           style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,.12)', color: 'var(--text)' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3" /></svg>
         </button>
-        <button className="press flex items-center justify-center" onClick={() => setRunning(r => !r)} aria-label={running ? 'Pauza' : 'Wznów'}
+        <button className="press flex items-center justify-center"
+          onClick={() => {
+            autoPaused.current = false
+            lastMovementAt.current = Date.now()
+            setRunning(r => !r)
+          }}
+          aria-label={running ? 'Pauza' : 'Wznów'}
           style={{ width: 84, height: 84, borderRadius: '50%', background: 'var(--green)', border: 'none', color: '#000', boxShadow: '0 10px 30px -6px rgba(0,230,118,.55)' }}>
           {running
             ? <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.5" /><rect x="14" y="5" width="4" height="14" rx="1.5" /></svg>

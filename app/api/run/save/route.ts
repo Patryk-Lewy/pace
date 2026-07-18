@@ -22,6 +22,17 @@ export async function POST(request: Request) {
     }
 
     const startDate = typeof body?.start_date === 'string' ? body.start_date : new Date().toISOString()
+
+    // Optional per-km splits (seconds) and downsampled GPS route ([lat,lng])
+    const splits: number[] | null = Array.isArray(body?.splits)
+      ? body.splits.filter((s: unknown) => Number.isFinite(Number(s)) && Number(s) > 0).map(Number).slice(0, 300)
+      : null
+    const route: [number, number][] | null = Array.isArray(body?.route)
+      ? body.route
+          .filter((p: unknown) => Array.isArray(p) && p.length === 2 && Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1])))
+          .map((p: [unknown, unknown]) => [Number(p[0]), Number(p[1])] as [number, number])
+          .slice(0, 2000)
+      : null
     const elapsedS = Number.isFinite(Number(body?.elapsed_time_s)) ? Number(body.elapsed_time_s) : Math.round(movingS)
     const pace = Number.isFinite(Number(body?.avg_pace_s_per_km))
       ? Math.round(Number(body.avg_pace_s_per_km))
@@ -39,6 +50,8 @@ export async function POST(request: Request) {
         moving_time_s: Math.round(movingS),
         elapsed_time_s: elapsedS,
         avg_pace_s_per_km: pace,
+        splits: splits && splits.length ? splits : null,
+        route: route && route.length >= 2 ? route : null,
       })
       .select()
       .single()

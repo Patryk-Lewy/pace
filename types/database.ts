@@ -30,7 +30,9 @@ export type Database = {
           max_heartrate: number | null
           moving_time_s: number | null
           name: string
+          route: Json | null
           source: string
+          splits: Json | null
           start_date: string
           strava_id: number | null
           strava_type: string | null
@@ -51,7 +53,9 @@ export type Database = {
           max_heartrate?: number | null
           moving_time_s?: number | null
           name: string
+          route?: Json | null
           source?: string
+          splits?: Json | null
           start_date: string
           strava_id?: number | null
           strava_type?: string | null
@@ -72,7 +76,9 @@ export type Database = {
           max_heartrate?: number | null
           moving_time_s?: number | null
           name?: string
+          route?: Json | null
           source?: string
+          splits?: Json | null
           start_date?: string
           strava_id?: number | null
           strava_type?: string | null
