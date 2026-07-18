@@ -34,6 +34,25 @@ function fmtPace(secPerKm: number | null): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Speak a Polish announcement via Web Speech (no-op when unsupported). */
+function speak(text: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  try {
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'pl-PL'
+    u.rate = 1
+    window.speechSynthesis.speak(u)
+  } catch { /* ignore */ }
+}
+
+function spokenPace(secPerKm: number | null): string {
+  if (!secPerKm || !Number.isFinite(secPerKm) || secPerKm <= 0) return ''
+  const m = Math.floor(secPerKm / 60)
+  const s = Math.round(secPerKm % 60)
+  return s > 0 ? `${m} ${s.toString().padStart(2, '0')}` : `${m} minut`
+}
+
 /** Haversine distance in metres between two lat/lng points. */
 function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000
@@ -59,6 +78,31 @@ export default function RunPage() {
   const startIso = useRef<string>('')
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
   const watchId = useRef<number | null>(null)
+
+  // Voice coaching — announce every full km; preference persists
+  const [voiceOn, setVoiceOn] = useState(true)
+  const voiceRef = useRef(true)
+  const lastKmAnnounced = useRef(0)
+  const elapsedRef = useRef(0)
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('pace-voice') : null
+    if (saved !== null) { setVoiceOn(saved === '1'); voiceRef.current = saved === '1' }
+  }, [])
+  useEffect(() => { voiceRef.current = voiceOn }, [voiceOn])
+  useEffect(() => { elapsedRef.current = elapsed }, [elapsed])
+
+  useEffect(() => {
+    const km = Math.floor(distanceM / 1000)
+    if (km >= 1 && km > lastKmAnnounced.current) {
+      lastKmAnnounced.current = km
+      if (voiceRef.current) {
+        const el = elapsedRef.current
+        const avg = distanceM > 50 ? Math.round(el / (distanceM / 1000)) : null
+        const mins = Math.floor(el / 60)
+        speak(`Kilometr ${km}. Czas ${mins} ${mins === 1 ? 'minuta' : 'minut'}. Średnie tempo ${spokenPace(avg)} na kilometr.`)
+      }
+    }
+  }, [distanceM])
 
   useEffect(() => { runningRef.current = running }, [running])
 
@@ -231,7 +275,18 @@ export default function RunPage() {
           <span className="livedot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
           {phase === 'locating' ? 'SZUKAM GPS…' : running ? 'BIEG NA ŻYWO' : 'PAUZA'}
         </div>
-        <span style={{ font: '700 12px var(--font-barlow)', color: 'var(--text-2)' }}>PACE</span>
+        <button
+          onClick={() => {
+            const next = !voiceOn
+            setVoiceOn(next)
+            try { localStorage.setItem('pace-voice', next ? '1' : '0') } catch { /* ignore */ }
+            if (next) speak('Komunikaty głosowe włączone')
+          }}
+          className="press"
+          aria-label={voiceOn ? 'Wyłącz komunikaty głosowe' : 'Włącz komunikaty głosowe'}
+          style={{ background: 'none', border: 'none', fontSize: 18, color: voiceOn ? 'var(--green)' : 'var(--text-3)' }}>
+          {voiceOn ? '🔊' : '🔇'}
+        </button>
       </div>
 
       {/* Center */}
