@@ -202,6 +202,8 @@ export type Database = {
           created_at: string
           id: string
           injury_history: string | null
+          hr_zones: Json | null
+          max_hr: number | null
           max_session_minutes: number | null
           onboarding_completed: boolean
           onboarding_step: number
@@ -223,6 +225,8 @@ export type Database = {
           created_at?: string
           id: string
           injury_history?: string | null
+          hr_zones?: Json | null
+          max_hr?: number | null
           max_session_minutes?: number | null
           onboarding_completed?: boolean
           onboarding_step?: number
@@ -244,6 +248,8 @@ export type Database = {
           created_at?: string
           id?: string
           injury_history?: string | null
+          hr_zones?: Json | null
+          max_hr?: number | null
           max_session_minutes?: number | null
           onboarding_completed?: boolean
           onboarding_step?: number

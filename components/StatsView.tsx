@@ -6,7 +6,8 @@ import { formatPace, formatDuration } from '@/lib/strava'
 import { predictRaceTime, formatTime } from '@/lib/pace-calculator'
 import FormChart from '@/components/FormChart'
 import { KmBarChart, PaceLineChart } from '@/components/ProgressCharts'
-import { estimateMaxHR, getZoneRanges, buildZoneDistribution } from '@/lib/heart-rate-zones'
+import { resolveZoneRanges, distributionByRanges } from '@/lib/heart-rate-zones'
+import type { Json } from '@/types/database'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
 import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
 import type { Activity, StravaToken } from '@/types/database'
@@ -103,12 +104,14 @@ function EstimatedPBs({ activities }: { activities: Activity[] }) {
   )
 }
 
-export default function StatsView({ token, activities, planWorkouts, raceDistance, raceGoalTime }: {
+export default function StatsView({ token, activities, planWorkouts, raceDistance, raceGoalTime, maxHr, hrZones }: {
   token: StravaToken | null
   activities: Activity[]
   planWorkouts: PlanWorkoutLite[]
   raceDistance: string | null
   raceGoalTime: string | null
+  maxHr: number | null
+  hrZones: Json | null
 }) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
@@ -231,7 +234,7 @@ export default function StatsView({ token, activities, planWorkouts, raceDistanc
 
           {/* HR Zones */}
           {activities.some(a => a.avg_heartrate) && (
-            <HRZonesSection activities={activities} />
+            <HRZonesSection activities={activities} maxHr={maxHr} hrZones={hrZones} />
           )}
 
           {/* Weekly groups */}
@@ -442,10 +445,9 @@ function ManageActivityModal({ activity: a, workouts, onClose, onChanged }: {
   )
 }
 
-function HRZonesSection({ activities }: { activities: Activity[] }) {
-  const maxHR = estimateMaxHR(activities)
-  const zones = getZoneRanges(maxHR)
-  const distribution = buildZoneDistribution(activities, maxHR)
+function HRZonesSection({ activities, maxHr, hrZones }: { activities: Activity[]; maxHr: number | null; hrZones: Json | null }) {
+  const { ranges: zones, maxHr: maxHR, source } = resolveZoneRanges({ max_hr: maxHr, hr_zones: hrZones }, activities)
+  const distribution = distributionByRanges(activities, zones)
   const total = Object.values(distribution).reduce((s, v) => s + v, 0)
 
   const pct = (name: string) => (total > 0 ? ((distribution[name] ?? 0) / total) * 100 : 0)
@@ -477,7 +479,7 @@ function HRZonesSection({ activities }: { activities: Activity[] }) {
       </div>
 
       <p style={{ font: '500 10px var(--font-barlow)', color: 'var(--text-3)', marginTop: 10 }}>
-        Max HR: {maxHR} bpm
+        Max HR: {maxHR} bpm · {source === 'custom' ? 'strefy własne' : source === 'max_hr' ? 'Twój max HR' : 'auto z biegów'} — zmień w Ustawieniach
       </p>
     </div>
   )

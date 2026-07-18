@@ -18,7 +18,7 @@ export default async function StatsPage() {
       .eq('user_id', user.id).eq('hidden', false).order('start_date', { ascending: false }).limit(200),
     supabase.from('training_plans').select('id').eq('user_id', user.id).eq('status', 'active')
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('runner_profiles').select('race_distance, race_goal_time').eq('id', user.id).maybeSingle(),
+    supabase.from('runner_profiles').select('race_distance, race_goal_time, max_hr, hr_zones').eq('id', user.id).maybeSingle(),
   ])
 
   let planWorkouts: { id: string; title: string; week_number: number; day_of_week: string }[] = []
@@ -38,6 +38,8 @@ export default async function StatsPage() {
       planWorkouts={planWorkouts}
       raceDistance={profile?.race_distance ?? null}
       raceGoalTime={profile?.race_goal_time ?? null}
+      maxHr={profile?.max_hr ?? null}
+      hrZones={profile?.hr_zones ?? null}
     />
   )
 }

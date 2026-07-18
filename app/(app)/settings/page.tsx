@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import NotificationToggle from '@/components/NotificationToggle'
+import { parseCustomBounds, HR_ZONES } from '@/lib/heart-rate-zones'
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
@@ -103,6 +104,133 @@ function CalibrateCard({ onApplied }: { onApplied: () => void }) {
   )
 }
 
+function HRZonesEditor({ initialMaxHr, initialZones }: {
+  initialMaxHr: number | null
+  initialZones: number[] | null
+}) {
+  const isCustom = initialMaxHr !== null
+  const [open, setOpen] = useState(false)
+  const [maxHr, setMaxHr] = useState(String(initialMaxHr ?? 190))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  // Zone upper bounds Z1–Z4; defaults derived as % of max when not customized
+  const defaults = (m: number) => [60, 70, 80, 90].map(p => Math.round(m * p / 100))
+  const [bounds, setBounds] = useState<string[]>(
+    (initialZones ?? defaults(initialMaxHr ?? 190)).map(String)
+  )
+
+  function setBound(i: number, v: string) {
+    setBounds(b => b.map((x, j) => (j === i ? v : x)))
+  }
+
+  async function save(reset: boolean) {
+    setBusy(true)
+    setErr(null)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Brak sesji')
+
+      if (reset) {
+        const { error } = await supabase.from('runner_profiles')
+          .update({ max_hr: null, hr_zones: null }).eq('id', user.id)
+        if (error) throw new Error('Błąd zapisu')
+        window.location.reload()
+        return
+      }
+
+      const m = Number(maxHr)
+      const nums = bounds.map(Number)
+      if (!Number.isFinite(m) || m < 120 || m > 230) throw new Error('Max HR musi być w zakresie 120–230')
+      if (nums.some(n => !Number.isFinite(n) || n < 60 || n > 230)) throw new Error('Granice stref muszą być w zakresie 60–230')
+      for (let i = 1; i < nums.length; i++) {
+        if (nums[i] <= nums[i - 1]) throw new Error('Granice stref muszą rosnąć (Z1 < Z2 < Z3 < Z4)')
+      }
+      if (nums[3] >= m) throw new Error('Górna granica Z4 musi być niższa niż max HR')
+
+      const { error } = await supabase.from('runner_profiles')
+        .update({ max_hr: m, hr_zones: nums }).eq('id', user.id)
+      if (error) throw new Error('Błąd zapisu')
+      window.location.reload()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Błąd zapisu')
+      setBusy(false)
+    }
+  }
+
+  const zoneRows = HR_ZONES.slice(0, 4)
+
+  return (
+    <div style={{ borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12 }}>
+      <button onClick={() => setOpen(o => !o)} className="press flex items-center justify-between"
+        style={{ width: '100%', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}>
+        <div>
+          <p style={{ font: '700 14px var(--font-barlow)', color: 'var(--text)' }}>❤️ Strefy tętna</p>
+          <p style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>
+            {isCustom ? `Własne · max ${initialMaxHr} bpm` : 'Automatyczne (z historii biegów)'}
+          </p>
+        </div>
+        <span style={{ color: 'var(--text-3)' }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          {/* Max HR */}
+          <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+            <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text-2)' }}>Maksymalne tętno</span>
+            <div className="flex items-center" style={{ gap: 6 }}>
+              <input type="number" inputMode="numeric" min={120} max={230} value={maxHr}
+                onChange={e => setMaxHr(e.target.value)}
+                style={{ width: 72, textAlign: 'center', borderRadius: 10, padding: '8px 6px', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', font: '700 14px var(--font-barlow)' }} />
+              <span style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>bpm</span>
+            </div>
+          </div>
+
+          {/* Zone bounds */}
+          {zoneRows.map((z, i) => (
+            <div key={z.name} className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+              <div className="flex items-center" style={{ gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: z.color, display: 'inline-block' }} />
+                <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text-2)' }}>{z.name} · {z.label}</span>
+              </div>
+              <div className="flex items-center" style={{ gap: 6 }}>
+                <span style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>do</span>
+                <input type="number" inputMode="numeric" min={60} max={230} value={bounds[i]}
+                  onChange={e => setBound(i, e.target.value)}
+                  style={{ width: 64, textAlign: 'center', borderRadius: 10, padding: '7px 6px', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', font: '700 13px var(--font-barlow)' }} />
+                <span style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>bpm</span>
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+            <div className="flex items-center" style={{ gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: HR_ZONES[4].color, display: 'inline-block' }} />
+              <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text-2)' }}>Z5 · {HR_ZONES[4].label}</span>
+            </div>
+            <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text-3)' }}>do {maxHr || '—'} bpm</span>
+          </div>
+
+          {err && <p style={{ font: '500 12px var(--font-barlow)', color: 'var(--orange)', marginBottom: 10 }}>{err}</p>}
+
+          <div className="flex" style={{ gap: 8 }}>
+            <button onClick={() => save(false)} disabled={busy} className="press"
+              style={{ flex: 2, borderRadius: 12, padding: 12, background: 'var(--green)', color: '#000', border: 'none', font: '800 12px var(--font-barlow-condensed)', letterSpacing: 1, textTransform: 'uppercase' }}>
+              {busy ? '...' : 'Zapisz strefy'}
+            </button>
+            {isCustom && (
+              <button onClick={() => save(true)} disabled={busy} className="press"
+                style={{ flex: 1, borderRadius: 12, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)', font: '600 12px var(--font-barlow)' }}>
+                Auto
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ProfileStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div style={{ flex: 1, borderRadius: 14, padding: 12, background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'center' }}>
@@ -118,7 +246,14 @@ const DISTANCE_LABELS: Record<string, string> = {
   '5km': '5 km', '10km': '10 km', half: 'Półmaraton', marathon: 'Maraton',
 }
 
-type ProfileLite = { race_distance: string | null; weekly_km: number | null; pb_5k: string | null; best_5k_pace: string | null }
+type ProfileLite = {
+  race_distance: string | null
+  weekly_km: number | null
+  pb_5k: string | null
+  best_5k_pace: string | null
+  max_hr: number | null
+  hr_zones: unknown
+}
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -135,7 +270,7 @@ export default function SettingsPage() {
       const [{ data: { user } }, { data: strava }, { data: prof }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('strava_tokens').select('user_id').maybeSingle(),
-        supabase.from('runner_profiles').select('race_distance, weekly_km, pb_5k, best_5k_pace').maybeSingle(),
+        supabase.from('runner_profiles').select('race_distance, weekly_km, pb_5k, best_5k_pace, max_hr, hr_zones').maybeSingle(),
       ])
       setEmail(user?.email ?? '')
       setStravaConnected(!!strava)
@@ -218,6 +353,11 @@ export default function SettingsPage() {
       </div>
 
       {stravaConnected && <CalibrateCard onApplied={() => window.location.reload()} />}
+
+      <HRZonesEditor
+        initialMaxHr={profile?.max_hr ?? null}
+        initialZones={parseCustomBounds(profile?.hr_zones)}
+      />
 
       <div className="flex flex-col gap-4">
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { classifyHR, estimateMaxHR } from '@/lib/heart-rate-zones'
+import { resolveZoneRanges, classifyByRanges, type ZoneRange } from '@/lib/heart-rate-zones'
 import { formatPace, formatDuration } from '@/lib/strava'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
 import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
@@ -34,7 +34,7 @@ export default function WorkoutDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [matchedActivity, setMatchedActivity] = useState<Activity | null>(null)
-  const [maxHR, setMaxHR] = useState(190)
+  const [hrRanges, setHrRanges] = useState<ZoneRange[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -46,18 +46,19 @@ export default function WorkoutDetailPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient()
-    // All three queries key off the route id — run them in parallel instead
-    // of a 3-step waterfall.
-    const [{ data: w }, { data: act }, { data: recent }] = await Promise.all([
+    // All queries key off the route id / user — run them in parallel instead
+    // of a waterfall.
+    const [{ data: w }, { data: act }, { data: recent }, { data: profile }] = await Promise.all([
       supabase.from('workouts').select('*').eq('id', id).single(),
       supabase.from('activities').select('*').eq('matched_workout_id', id).maybeSingle(),
       supabase.from('activities').select('max_heartrate').order('start_date', { ascending: false }).limit(20),
+      supabase.from('runner_profiles').select('max_hr, hr_zones').maybeSingle(),
     ])
 
     setWorkout(w)
     setNotes(w?.user_notes ?? '')
     setMatchedActivity(act ?? null)
-    if (act) setMaxHR(estimateMaxHR(recent ?? []))
+    if (act) setHrRanges(resolveZoneRanges(profile, recent ?? []).ranges)
 
     setLoading(false)
   }, [id])
@@ -260,8 +261,8 @@ export default function WorkoutDetailPage() {
             </div>
 
             {/* Actual zone from Strava */}
-            {matchedActivity?.avg_heartrate && (() => {
-              const actualZone = classifyHR(matchedActivity.avg_heartrate, maxHR)
+            {matchedActivity?.avg_heartrate && hrRanges && (() => {
+              const actualZone = classifyByRanges(matchedActivity.avg_heartrate, hrRanges)
               return (
                 <div className="flex items-center gap-3 flex-1 border-l pl-4" style={{ borderColor: 'var(--border)' }}>
                   <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ background: actualZone.color }} />
