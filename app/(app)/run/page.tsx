@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
+import RouteMap from '@/components/RouteMap'
 
 type Phase = 'locating' | 'tracking' | 'denied' | 'saving' | 'done'
 
@@ -276,6 +277,12 @@ export default function RunPage() {
             </div>
           )}
         </div>
+
+        {routeRef.current.length >= 2 && (
+          <div style={{ borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)', padding: '8px 4px', marginBottom: 14 }}>
+            <RouteMap points={routeRef.current} />
+          </div>
+        )}
 
         {summary.splits.length > 0 && (
           <div style={{ borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 14 }}>

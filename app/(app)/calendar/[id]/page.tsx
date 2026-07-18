@@ -7,6 +7,7 @@ import { classifyHR, estimateMaxHR } from '@/lib/heart-rate-zones'
 import { formatPace, formatDuration } from '@/lib/strava'
 import { PoweredByStrava } from '@/components/PoweredByStrava'
 import ShareWorkoutButton, { type ShareCardData } from '@/components/ShareWorkoutButton'
+import RouteMap from '@/components/RouteMap'
 import type { Workout, Activity } from '@/types/database'
 
 const TYPE_META: Record<string, { color: string; bg: string; emoji: string; zone: string; label: string }> = {
@@ -290,6 +291,13 @@ export default function WorkoutDetailPage() {
               <PoweredByStrava className="ml-auto" />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Route map for the linked in-app recorded run */}
+      {Array.isArray(matchedActivity?.route) && (matchedActivity.route as [number, number][]).length >= 2 && (
+        <div className="rounded-2xl p-2 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <RouteMap points={matchedActivity.route as [number, number][]} />
         </div>
       )}
 
