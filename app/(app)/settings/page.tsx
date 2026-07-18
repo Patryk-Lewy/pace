@@ -37,6 +37,72 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)', borderRadius: 10, padding: '10px 14px', fontSize: 14, width: '100%',
 }
 
+function CalibrateCard({ onApplied }: { onApplied: () => void }) {
+  const [proposal, setProposal] = useState<{ weekly_km: number; pb_5k: string | null; runs: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function call(apply: boolean) {
+    setBusy(true)
+    setErr(null)
+    try {
+      const res = await fetch('/api/profile/calibrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apply ? { apply: true } : {}),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Błąd kalibracji')
+      if (apply) onApplied()
+      else setProposal(data)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Błąd kalibracji')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ borderRadius: 18, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12 }}>
+      <div className="flex items-center justify-between" style={{ gap: 12 }}>
+        <div>
+          <p style={{ font: '700 14px var(--font-barlow)' }}>📐 Kalibracja ze Stravy</p>
+          <p style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>
+            Wylicz kilometraż i szacowany PB 5k z ostatnich 4 tygodni
+          </p>
+        </div>
+        {!proposal && (
+          <button onClick={() => call(false)} disabled={busy} className="press"
+            style={{ borderRadius: 12, padding: '10px 14px', background: 'var(--green-dim)', border: '1px solid var(--green)', color: 'var(--green)', font: '700 12px var(--font-barlow)', flexShrink: 0 }}>
+            {busy ? '...' : 'Wylicz'}
+          </button>
+        )}
+      </div>
+
+      {proposal && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+          <p style={{ font: '500 13px var(--font-barlow)', color: 'var(--text-2)', marginBottom: 10 }}>
+            Z {proposal.runs} biegów: <b style={{ color: 'var(--text)' }}>{proposal.weekly_km} km/tydz.</b>
+            {proposal.pb_5k && <> · PB 5k ≈ <b style={{ color: 'var(--text)' }}>{proposal.pb_5k}</b></>}
+          </p>
+          <div className="flex" style={{ gap: 8 }}>
+            <button onClick={() => call(true)} disabled={busy} className="press"
+              style={{ flex: 1, borderRadius: 12, padding: 11, background: 'var(--green)', color: '#000', border: 'none', font: '800 12px var(--font-barlow-condensed)', letterSpacing: 1, textTransform: 'uppercase' }}>
+              {busy ? '...' : 'Zapisz do profilu'}
+            </button>
+            <button onClick={() => setProposal(null)} disabled={busy} className="press"
+              style={{ flex: 1, borderRadius: 12, padding: 11, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-2)', font: '600 12px var(--font-barlow)' }}>
+              Anuluj
+            </button>
+          </div>
+        </div>
+      )}
+
+      {err && <p style={{ font: '500 12px var(--font-barlow)', color: 'var(--orange)', marginTop: 10 }}>{err}</p>}
+    </div>
+  )
+}
+
 function ProfileStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div style={{ flex: 1, borderRadius: 14, padding: 12, background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'center' }}>
@@ -150,6 +216,8 @@ export default function SettingsPage() {
         <ProfileStat label="Km/tydz." value={profile?.weekly_km ? `${profile.weekly_km} km` : '—'} />
         <ProfileStat label="PB 5k" value={pb5} />
       </div>
+
+      {stravaConnected && <CalibrateCard onApplied={() => window.location.reload()} />}
 
       <div className="flex flex-col gap-4">
 
