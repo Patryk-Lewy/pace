@@ -18,8 +18,16 @@ const DAY_MAP: Record<number, string> = {
   0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat',
 }
 
-// POST /api/notifications/send
-// Called by Vercel Cron daily at 07:00 UTC. Secret-protected.
+// Only "hard" sessions warrant an evening heads-up
+const HARD_TYPES = new Set(['tempo', 'intervals', 'long_run'])
+
+const HARD_LABEL: Record<string, string> = {
+  tempo: 'tempo', intervals: 'interwały', long_run: 'długie wybieganie',
+}
+
+// POST /api/notifications/evening
+// Vercel Cron daily at 18:00 UTC. If TOMORROW holds a hard workout
+// (tempo / intervals / long run), nudge the runner the evening before.
 export async function POST(request: NextRequest) {
   // Vercel Cron invokes GET with Authorization: Bearer ${CRON_SECRET};
   // manual/legacy calls use NOTIFICATIONS_SECRET. Accept either.
@@ -31,11 +39,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Service client required — cron has no user session, anon key blocked by RLS
   const supabase = createServiceClient()
-  const today = DAY_MAP[new Date().getDay()]
 
-  // Active plans only (ignore archived). created_at needed for date math.
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowDow = DAY_MAP[tomorrow.getDay()]
+  const tomorrowKey = dateKey(tomorrow)
+
   const { data: activePlans } = await supabase
     .from('training_plans')
     .select('id, created_at')
@@ -48,26 +58,23 @@ export async function POST(request: NextRequest) {
 
   const { data: allWorkouts } = await supabase
     .from('workouts')
-    .select('id, user_id, plan_id, week_number, day_of_week, title, workout_type, distance_km, target_pace, duration_minutes')
+    .select('id, user_id, plan_id, week_number, day_of_week, title, workout_type, distance_km, target_pace')
     .in('plan_id', activePlans.map(p => p.id))
-    .eq('day_of_week', today)
+    .eq('day_of_week', tomorrowDow)
     .eq('status', 'planned')
-    .neq('workout_type', 'rest')
 
-  // Keep only those whose ACTUAL calendar date is today
-  const todayKey = dateKey(new Date())
   const workouts = (allWorkouts ?? []).filter(w => {
+    if (!HARD_TYPES.has(w.workout_type)) return false
     const created = planCreatedById.get(w.plan_id)
     if (!created) return false
-    return dateKey(computeWorkoutDate(created, w.week_number, w.day_of_week)) === todayKey
+    return dateKey(computeWorkoutDate(created, w.week_number, w.day_of_week)) === tomorrowKey
   })
 
   if (!workouts.length) {
-    return NextResponse.json({ sent: 0, message: 'No workouts today' })
+    return NextResponse.json({ sent: 0, message: 'No hard workouts tomorrow' })
   }
 
   const userIds = [...new Set(workouts.map(w => w.user_id))]
-
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('*')
@@ -92,13 +99,12 @@ export async function POST(request: NextRequest) {
       const details = [
         workout.distance_km ? `${workout.distance_km} km` : null,
         workout.target_pace ? `@ ${workout.target_pace}/km` : null,
-        workout.duration_minutes ? `~${workout.duration_minutes} min` : null,
       ].filter(Boolean).join(' · ')
 
       const payload = JSON.stringify({
-        title: `PACE — Dziś masz trening! 🏃`,
-        body: `${workout.title}${details ? `\n${details}` : ''}`,
-        tag: `pace-workout-${workout.id}`,
+        title: `PACE — jutro ${HARD_LABEL[workout.workout_type] ?? 'ciężki trening'} 💪`,
+        body: `${workout.title}${details ? ` (${details})` : ''}. Zjedz porządnie i wyśpij się!`,
+        tag: `pace-evening-${workout.id}`,
         url: `/calendar/${workout.id}`,
       })
 
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
         if (statusCode === 410 || statusCode === 404) {
           staleEndpoints.push(sub.endpoint)
         } else {
-          console.error('[PUSH] Send error:', err)
+          console.error('[PUSH] Evening send error:', err)
         }
         failed++
       }

@@ -9,8 +9,13 @@ export const maxDuration = 60
 // Called by Vercel Cron every Sunday at 08:00 UTC.
 // Sends each user a summary of the past week and preview of the next.
 export async function POST(request: NextRequest) {
+  // Vercel Cron invokes GET with Authorization: Bearer ${CRON_SECRET};
+  // manual/legacy calls use NOTIFICATIONS_SECRET. Accept either.
   const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.NOTIFICATIONS_SECRET}`) {
+  const ok = [process.env.NOTIFICATIONS_SECRET, process.env.CRON_SECRET]
+    .filter(Boolean)
+    .some(s => auth === `Bearer ${s}`)
+  if (!ok) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -223,3 +228,6 @@ function buildWeeklySummaryEmail({
 </body>
 </html>`
 }
+
+// Vercel Cron sends GET
+export { POST as GET }

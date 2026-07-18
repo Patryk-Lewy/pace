@@ -8,6 +8,10 @@
     {
       "path": "/api/notifications/weekly-summary",
       "schedule": "0 8 * * 0"
+    },
+    {
+      "path": "/api/notifications/evening",
+      "schedule": "0 18 * * *"
     }
   ]
 }
