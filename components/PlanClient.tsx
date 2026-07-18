@@ -57,7 +57,7 @@ export default function PlanClient({ plan, archivedPlans }: {
       {plan && (
         <div className="flex flex-col" style={{ gap: 24 }}>
           <PlanView plan={plan} onCalendar={() => router.push('/calendar')} />
-          <PlanParamsEditor hasPlan={true} onRebuilt={loadPlan} />
+          <CollapsibleEditor onRebuilt={loadPlan} />
         </div>
       )}
 
@@ -116,6 +116,28 @@ type PlanJson = {
       description: string
     }>
   }>
+}
+
+/** Plan params form tucked behind a toggle — it's a rarely-used, tall form. */
+function CollapsibleEditor({ onRebuilt }: { onRebuilt: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button onClick={() => setOpen(o => !o)} className="press flex items-center justify-between"
+        style={{ width: '100%', borderRadius: 18, padding: '15px 18px', background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'left' }}>
+        <div>
+          <div style={{ font: '700 14px var(--font-barlow)', color: 'var(--text)' }}>⚙️ Parametry planu</div>
+          <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>Cel, dni, rekordy · przebudowa zachowuje ukończone treningi</div>
+        </div>
+        <span style={{ color: 'var(--text-3)', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          <PlanParamsEditor hasPlan={true} onRebuilt={onRebuilt} />
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Garmin Sync Modal ────────────────────────────────────────────────────────
@@ -358,6 +380,23 @@ function PlanView({ plan, onCalendar }: {
         <div className="flex flex-col" style={{ gap: 10 }}>
           {planJson.weeks.map(week => {
             const isCurrent = week.week_number === curWeek
+            const isPast = week.week_number < curWeek
+
+            // Past weeks collapse to a slim one-liner — done, no need for detail
+            if (isPast) {
+              return (
+                <button key={week.week_number} onClick={onCalendar} className="press flex items-center justify-between text-left"
+                  style={{ width: '100%', borderRadius: 14, padding: '10px 16px', background: 'var(--surface)', border: '1px solid var(--border)', opacity: 0.55 }}>
+                  <span className="flex items-center" style={{ gap: 8 }}>
+                    <span style={{ font: '700 10px var(--font-barlow)', color: 'var(--text-3)' }}>TYG. {week.week_number}</span>
+                    <span style={{ font: '600 11px var(--font-barlow)', color: PHASE_COLORS[week.phase] ?? 'var(--text-3)' }}>{week.phase}</span>
+                    <span style={{ font: '500 11px var(--font-barlow)', color: 'var(--text-3)' }}>✓ za Tobą</span>
+                  </span>
+                  <span className="cond" style={{ fontSize: 16, color: 'var(--text-2)' }}>{week.total_km} km</span>
+                </button>
+              )
+            }
+
             return (
               <button key={week.week_number} onClick={onCalendar} className="press text-left"
                 style={{ width: '100%', borderRadius: 20, padding: 16, background: 'var(--surface)', border: `1px solid ${isCurrent ? 'rgba(0,230,118,.3)' : 'var(--border)'}` }}>
@@ -367,7 +406,7 @@ function PlanView({ plan, onCalendar }: {
                       TYG. {week.week_number}
                     </span>
                     <span style={{ font: '700 10px var(--font-barlow)', padding: '4px 10px', borderRadius: 20, background: metaBgForPhase(week.phase), color: PHASE_COLORS[week.phase] ?? 'var(--text-3)' }}>
-                      {week.phase}
+                      {week.phase}{isCurrent ? ' · teraz' : ''}
                     </span>
                   </div>
                   <span className="cond" style={{ fontSize: 20, color: 'var(--green)' }}>{week.total_km} km</span>
