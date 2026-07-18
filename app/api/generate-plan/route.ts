@@ -211,12 +211,24 @@ export async function POST(request: Request) {
     // Identify the existing active plan (needed for rebuild)
     const { data: existingPlan } = await supabase
       .from('training_plans')
-      .select('id')
+      .select('id, race_distance, race_date')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    // Rebuild-in-place only makes sense for tweaks within the SAME goal
+    // (days, paces, PBs). If the goal itself changed — distance or race date —
+    // the timeline must re-anchor at "now", so force a FRESH plan instead:
+    // rebuilding would keep the old created_at (week-1 anchor) and drop the
+    // user mid-plan with the taper landing nowhere near the new race.
+    if (rebuild && existingPlan) {
+      const goalChanged =
+        existingPlan.race_distance !== profile.race_distance ||
+        (existingPlan.race_date ?? null) !== (profile.race_date ?? null)
+      if (goalChanged) rebuild = false
+    }
 
     // Workouts the user already engaged with — preserved on rebuild
     let lockedCount = 0
