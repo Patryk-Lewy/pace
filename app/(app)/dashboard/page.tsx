@@ -2,12 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import StravaToast from '@/components/StravaToast'
-import TodayBanner from '@/components/TodayBanner'
 import AdaptationBanner from '@/components/AdaptationBanner'
 import WeeklyRecapCard from '@/components/WeeklyRecapCard'
 import { formatPace } from '@/lib/strava'
 import { computeWorkoutDate } from '@/lib/workout-matching'
-import { metaFor, shortPace } from '@/lib/workout-meta'
+import { metaFor, shortPace, DAY_PL } from '@/lib/workout-meta'
 import type { AdaptationResult } from '@/lib/plan-adaptation'
 
 export default async function DashboardPage({
@@ -129,13 +128,12 @@ export default async function DashboardPage({
         </Link>
       </div>
 
-      <TodayBanner workout={todayWorkout} />
-
-      {weeklyRecap && <WeeklyRecapCard id={weeklyRecap.id} content={weeklyRecap.content} />}
-
-      {pendingAdaptation && (
+      {/* One AI card at a time: actionable adaptation wins over the recap */}
+      {pendingAdaptation ? (
         <AdaptationBanner commentId={pendingAdaptation.id} result={pendingAdaptation.result} />
-      )}
+      ) : weeklyRecap ? (
+        <WeeklyRecapCard id={weeklyRecap.id} content={weeklyRecap.content} />
+      ) : null}
 
       {/* Training-load warning (ACWR) */}
       {acwrLevel && (
@@ -159,7 +157,7 @@ export default async function DashboardPage({
 
       {/* Hero — today's / next workout */}
       {activePlan && nextWorkout ? (
-        <HeroWorkout workout={nextWorkout} />
+        <HeroWorkout workout={nextWorkout} isToday={todayWorkout?.id === nextWorkout.id} />
       ) : !activePlan ? (
         <NoPlanCard />
       ) : (
@@ -234,7 +232,7 @@ export default async function DashboardPage({
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
-function HeroWorkout({ workout }: { workout: { id: string; title: string; workout_type: string; week_number: number; distance_km: number | null; target_pace: string | null; duration_minutes: number | null } }) {
+function HeroWorkout({ workout, isToday }: { workout: { id: string; title: string; workout_type: string; week_number: number; day_of_week: string; distance_km: number | null; target_pace: string | null; duration_minutes: number | null }; isToday: boolean }) {
   const meta = metaFor(workout.workout_type)
   const pace = shortPace(workout.target_pace)
   return (
@@ -244,7 +242,9 @@ function HeroWorkout({ workout }: { workout: { id: string; title: string; workou
       border: '1px solid rgba(0,230,118,.35)',
     }}>
       <div style={{ position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,230,118,.18), transparent 70%)' }} />
-      <div className="kick" style={{ fontSize: 11, color: 'var(--green)' }}>Dziś · Tydzień {workout.week_number}</div>
+      <div className="kick" style={{ fontSize: 11, color: 'var(--green)' }}>
+        {isToday ? 'Dziś' : `Następny · ${DAY_PL[workout.day_of_week] ?? workout.day_of_week}`} · Tydzień {workout.week_number}
+      </div>
       <div className="cond" style={{ fontSize: 40, margin: '8px 0 4px' }}>{workout.title}</div>
       <div className="inline-flex items-center" style={{ gap: 6, background: meta.bg, color: meta.color, borderRadius: 20, padding: '5px 12px', font: '700 11px var(--font-barlow)' }}>
         {meta.emoji} {meta.label.toUpperCase()} · STREFA {meta.zone}
