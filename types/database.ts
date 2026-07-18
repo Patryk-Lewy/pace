@@ -140,36 +140,6 @@ export type Database = {
           },
         ]
       }
-      plan_goals: {
-        Row: {
-          created_at: string
-          distance: string
-          id: string
-          is_active: boolean
-          target_date: string
-          target_time: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          distance: string
-          id?: string
-          is_active?: boolean
-          target_date: string
-          target_time?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          distance?: string
-          id?: string
-          is_active?: boolean
-          target_date?: string
-          target_time?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       push_subscriptions: {
         Row: {
           created_at: string | null
@@ -463,7 +433,6 @@ export type Tables<
 // ─── Convenience aliases ──────────────────────────────────────────────────────
 
 export type RunnerProfile      = Database['public']['Tables']['runner_profiles']['Row']
-export type PlanGoal           = Database['public']['Tables']['plan_goals']['Row']
 export type TrainingPlan       = Database['public']['Tables']['training_plans']['Row']
 export type Workout            = Database['public']['Tables']['workouts']['Row']
 export type AiComment          = Database['public']['Tables']['ai_comments']['Row']
