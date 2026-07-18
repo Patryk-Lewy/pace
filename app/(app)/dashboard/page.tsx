@@ -20,7 +20,8 @@ export default async function DashboardPage({
   const user = session.user
 
   const params = await searchParams
-  const weekAgoISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+  // 28 days of runs: last 7 feed the weekly stats, the full window feeds ACWR
+  const monthAgoISO = new Date(Date.now() - 28 * 24 * 3600 * 1000).toISOString()
 
   const [
     { data: profile },
@@ -31,7 +32,7 @@ export default async function DashboardPage({
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('activities').select('distance_m, avg_pace_s_per_km').eq('user_id', user.id).eq('hidden', false).gte('start_date', weekAgoISO),
+    supabase.from('activities').select('distance_m, avg_pace_s_per_km, start_date').eq('user_id', user.id).eq('hidden', false).gte('start_date', monthAgoISO),
   ])
 
   if (profile && !profile.onboarding_completed) redirect('/onboarding')
@@ -46,11 +47,21 @@ export default async function DashboardPage({
 
   const plannedWorkouts = (allWorkouts ?? []).filter(w => w.status === 'planned' && w.workout_type !== 'rest')
 
-  // Weekly summary stats (last 7 days)
-  const weekRuns = weekActivities ?? []
+  // Weekly summary stats (last 7 days) + ACWR training-load ratio
+  const monthRuns = weekActivities ?? []
+  const weekAgoMs = Date.now() - 7 * 24 * 3600 * 1000
+  const weekRuns = monthRuns.filter(a => new Date(a.start_date).getTime() >= weekAgoMs)
   const weekKm = weekRuns.reduce((s, a) => s + (a.distance_m ?? 0) / 1000, 0)
   const weekPaces = weekRuns.filter(a => a.avg_pace_s_per_km).map(a => a.avg_pace_s_per_km!)
   const weekAvgPace = weekPaces.length ? Math.round(weekPaces.reduce((s, p) => s + p, 0) / weekPaces.length) : null
+
+  // ACWR: acute (7-day km) vs chronic (28-day weekly average). Only meaningful
+  // with a real training base — skip for tiny volumes to avoid false alarms.
+  const monthKm = monthRuns.reduce((s, a) => s + (a.distance_m ?? 0) / 1000, 0)
+  const chronicWeeklyKm = monthKm / 4
+  const acwr = chronicWeeklyKm >= 10 ? weekKm / chronicWeeklyKm : null
+  const acwrLevel: 'high' | 'warn' | null =
+    acwr !== null && acwr >= 1.5 ? 'high' : acwr !== null && acwr >= 1.3 ? 'warn' : null
 
   // "Next workout" = nearest planned workout by actual date (prefer upcoming).
   let nextWorkout: NonNullable<typeof plannedWorkouts>[number] | null = null
@@ -117,6 +128,26 @@ export default async function DashboardPage({
 
       {pendingAdaptation && (
         <AdaptationBanner commentId={pendingAdaptation.id} result={pendingAdaptation.result} />
+      )}
+
+      {/* Training-load warning (ACWR) */}
+      {acwrLevel && (
+        <div className="flex items-start gap-3" style={{
+          borderRadius: 18, padding: '14px 16px', marginBottom: 12,
+          background: acwrLevel === 'high' ? 'rgba(239,68,68,.10)' : 'var(--orange-dim)',
+          border: `1px solid ${acwrLevel === 'high' ? 'rgba(239,68,68,.35)' : 'rgba(255,109,0,.3)'}`,
+        }}>
+          <span style={{ fontSize: 18 }}>{acwrLevel === 'high' ? '🚨' : '⚠️'}</span>
+          <div>
+            <div style={{ font: '700 13px var(--font-barlow)', color: acwrLevel === 'high' ? '#ef4444' : 'var(--orange)' }}>
+              {acwrLevel === 'high' ? 'Wysokie ryzyko przeciążenia' : 'Obciążenie rośnie szybko'}
+            </div>
+            <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-2)', marginTop: 2 }}>
+              {weekKm.toFixed(0)} km w 7 dni przy średniej {chronicWeeklyKm.toFixed(0)} km/tydz. (×{acwr!.toFixed(1)}).
+              {acwrLevel === 'high' ? ' Zaplanuj lżejszy tydzień — tak najczęściej zaczynają się kontuzje.' : ' Trzymaj się zasady +10% tygodniowo.'}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Hero — today's / next workout */}
