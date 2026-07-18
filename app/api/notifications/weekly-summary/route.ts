@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { Resend } from 'resend'
+import Anthropic from '@anthropic-ai/sdk'
 import { createServiceClient } from '@/lib/supabase/service'
 import { formatPace } from '@/lib/strava'
 
@@ -19,11 +20,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Missing Resend key only skips the e-mail — the in-app AI recap still runs.
   const resendKey = process.env.RESEND_API_KEY
-  if (!resendKey) return NextResponse.json({ ok: true, skipped: true })
-
   const supabase = createServiceClient()
-  const resend = new Resend(resendKey)
+  const resend = resendKey ? new Resend(resendKey) : null
+  const anthropic = process.env.ANTHROPIC_API_KEY
+    ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    : null
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://pace-murex.vercel.app'
 
   const fromAddress = process.env.RESEND_DOMAIN === 'resend.dev'
@@ -88,21 +91,51 @@ export async function POST(request: NextRequest) {
       // Don't send if user had zero activity AND zero upcoming — nothing useful to say
       if (runs.length === 0 && upcoming.length === 0) continue
 
-      const html = buildWeeklySummaryEmail({
-        appUrl,
-        runs: runs.length,
-        totalKm,
-        totalTime,
-        avgPace,
-        upcoming,
-      })
+      // In-app AI recap (shown as a card on the Dziś tab for 7 days)
+      if (anthropic) {
+        try {
+          const resp = await anthropic.messages.create({
+            model: 'claude-haiku-4-5',
+            max_tokens: 250,
+            messages: [{
+              role: 'user',
+              content: `Jesteś AI trenerem biegowym PACE. Napisz 2-3 zdaniowe podsumowanie tygodnia biegacza po polsku — konkretne, motywujące, bez lania wody. Zwróć TYLKO tekst podsumowania.
 
-      await resend.emails.send({
-        from: fromAddress,
-        to: authUser.email,
-        subject: `PACE — Twoje podsumowanie tygodnia 📊`,
-        html,
-      })
+Miniony tydzień: ${runs.length} biegów, ${totalKm.toFixed(1)} km łącznie${avgPace ? `, śr. tempo ${formatPace(avgPace)}/km` : ''}.
+Nadchodzące treningi: ${upcoming.map(w => w.title).join(', ') || 'brak zaplanowanych'}.
+${runs.length === 0 ? 'Biegacz nie trenował w tym tygodniu — delikatnie zmotywuj, bez wyrzutów.' : ''}`,
+            }],
+          })
+          const recap = resp.content[0]?.type === 'text' ? resp.content[0].text.trim() : ''
+          if (recap) {
+            await supabase.from('ai_comments').insert({
+              user_id: userId,
+              comment_type: 'weekly_recap',
+              content: recap,
+            })
+          }
+        } catch (err) {
+          console.error(`[WEEKLY SUMMARY] Recap failed for ${userId}:`, err)
+        }
+      }
+
+      if (resend) {
+        const html = buildWeeklySummaryEmail({
+          appUrl,
+          runs: runs.length,
+          totalKm,
+          totalTime,
+          avgPace,
+          upcoming,
+        })
+
+        await resend.emails.send({
+          from: fromAddress,
+          to: authUser.email,
+          subject: `PACE — Twoje podsumowanie tygodnia 📊`,
+          html,
+        })
+      }
 
       sent++
     } catch (err) {

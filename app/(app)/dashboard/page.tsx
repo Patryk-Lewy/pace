@@ -4,6 +4,7 @@ import Link from 'next/link'
 import StravaToast from '@/components/StravaToast'
 import TodayBanner from '@/components/TodayBanner'
 import AdaptationBanner from '@/components/AdaptationBanner'
+import WeeklyRecapCard from '@/components/WeeklyRecapCard'
 import { formatPace } from '@/lib/strava'
 import { computeWorkoutDate } from '@/lib/workout-matching'
 import { metaFor, shortPace } from '@/lib/workout-meta'
@@ -23,16 +24,20 @@ export default async function DashboardPage({
   // 28 days of runs: last 7 feed the weekly stats, the full window feeds ACWR
   const monthAgoISO = new Date(Date.now() - 28 * 24 * 3600 * 1000).toISOString()
 
+  const weekAgoRecapISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+
   const [
     { data: profile },
     { data: activePlan },
     { data: adaptationComment },
     { data: weekActivities },
+    { data: weeklyRecap },
   ] = await Promise.all([
     supabase.from('runner_profiles').select('*').eq('id', user.id).single(),
     supabase.from('training_plans').select('*').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
     supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'plan_adaptation').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('activities').select('distance_m, avg_pace_s_per_km, start_date').eq('user_id', user.id).eq('hidden', false).gte('start_date', monthAgoISO),
+    supabase.from('ai_comments').select('id, content').eq('user_id', user.id).eq('comment_type', 'weekly_recap').gte('created_at', weekAgoRecapISO).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   if (profile && !profile.onboarding_completed) redirect('/onboarding')
@@ -125,6 +130,8 @@ export default async function DashboardPage({
       </div>
 
       <TodayBanner workout={todayWorkout} />
+
+      {weeklyRecap && <WeeklyRecapCard id={weeklyRecap.id} content={weeklyRecap.content} />}
 
       {pendingAdaptation && (
         <AdaptationBanner commentId={pendingAdaptation.id} result={pendingAdaptation.result} />
