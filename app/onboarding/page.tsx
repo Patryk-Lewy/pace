@@ -325,8 +325,9 @@ export default function OnboardingPage() {
                 <div className="space-y-2">
                   {[
                     ['🤖', 'Plan treningowy generowany przez Claude AI'],
+                    ['🏃', 'Nagrywanie biegów GPS z głosowym trenerem'],
+                    ['💬', 'Czat z trenerem AI, który zna Twoje treningi'],
                     ['📊', 'Automatyczna analiza każdego biegu ze Stravy'],
-                    ['🔔', 'Przypomnienia push o treningach'],
                     ['📈', 'Adaptacja planu na podstawie Twoich wyników'],
                   ].map(([emoji, text]) => (
                     <div key={text} className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-2)' }}>
@@ -353,7 +354,7 @@ export default function OnboardingPage() {
                 <div className="grid grid-cols-2 gap-3">
                   {DISTANCES.map(d => (
                     <button key={d.id} onClick={() => set('race_distance', d.id)}
-                      className="rounded-xl py-4 text-sm font-bold transition-all"
+                      className="press rounded-xl py-4 text-sm font-bold transition-all"
                       style={{
                         background: form.race_distance === d.id ? 'var(--green-dim)' : 'var(--surface)',
                         border: `1px solid ${form.race_distance === d.id ? 'var(--green)' : 'var(--border)'}`,
@@ -394,9 +395,13 @@ export default function OnboardingPage() {
                   Data zawodów / celu (opcjonalnie)
                 </label>
                 <input type="date" value={form.race_date}
+                  min={new Date().toISOString().split('T')[0]}
                   onChange={e => set('race_date', e.target.value)}
                   className="w-full rounded-xl px-4 py-3 text-sm outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', colorScheme: 'dark' }} />
+                <p className="mt-1.5 text-xs" style={{ color: 'var(--text-3)' }}>
+                  Od tej daty zależy długość planu — tapering wypadnie tuż przed startem
+                </p>
               </div>
             </div>
           )}
@@ -407,7 +412,7 @@ export default function OnboardingPage() {
               <div className="rounded-xl px-4 py-3 text-xs"
                 style={{ background: 'var(--green-dim)', color: 'var(--green)', border: '1px solid rgba(0,230,118,0.2)' }}>
                 Na podstawie Twoich rekordów Claude obliczy optymalne tempa treningowe (metoda VDOT).
-                Podaj przynajmniej jeden — reszta opcjonalna.
+                Wszystkie pola są opcjonalne, ale im więcej podasz, tym trafniejsze tempa.
               </div>
 
               {([
@@ -477,7 +482,7 @@ export default function OnboardingPage() {
                 <div className="flex gap-2 flex-wrap">
                   {DAYS.map(d => (
                     <button key={d.id} onClick={() => toggleDay(d.id)}
-                      className="rounded-xl px-4 py-2 text-sm font-semibold transition-all"
+                      className="press rounded-xl px-4 py-2 text-sm font-semibold transition-all"
                       style={{
                         background: form.available_days.includes(d.id) ? 'var(--green-dim)' : 'var(--surface)',
                         border: `1px solid ${form.available_days.includes(d.id) ? 'var(--green)' : 'var(--border)'}`,
@@ -497,7 +502,7 @@ export default function OnboardingPage() {
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                   {SESSION_DURATIONS.map(d => (
                     <button key={d.id} onClick={() => set('max_session_minutes', d.id)}
-                      className="rounded-xl py-3 text-sm font-semibold transition-all"
+                      className="press rounded-xl py-3 text-sm font-semibold transition-all"
                       style={{
                         background: form.max_session_minutes === d.id ? 'var(--green-dim)' : 'var(--surface)',
                         border: `1px solid ${form.max_session_minutes === d.id ? 'var(--green)' : 'var(--border)'}`,
@@ -574,7 +579,7 @@ export default function OnboardingPage() {
           <div className="flex gap-3 mt-8">
             {step > 0 && (
               <button onClick={() => setStep(s => s - 1)}
-                className="flex-1 rounded-xl py-3 text-sm font-semibold transition-all"
+                className="press flex-1 rounded-xl py-3 text-sm font-semibold transition-all"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
                 Wstecz
               </button>
@@ -588,7 +593,7 @@ export default function OnboardingPage() {
                   (step === 2 && !!pbErr) ||
                   (step === 3 && form.available_days.length === 0)
                 }
-                className="flex-1 rounded-xl py-3 text-sm font-black uppercase tracking-widest transition-all"
+                className="press flex-1 rounded-xl py-3 text-sm font-black uppercase tracking-widest transition-all"
                 style={{
                   fontFamily: 'var(--font-barlow-condensed), sans-serif',
                   background: (
@@ -611,7 +616,7 @@ export default function OnboardingPage() {
               </button>
             ) : (
               <button onClick={finish}
-                className="flex-1 rounded-xl py-3 text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5"
+                className="press flex-1 rounded-xl py-3 text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5"
                 style={{ fontFamily: 'var(--font-barlow-condensed), sans-serif', background: 'var(--green)', color: '#000' }}>
                 🤖 Zbuduj mój plan →
               </button>
