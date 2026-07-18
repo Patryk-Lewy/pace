@@ -52,6 +52,10 @@ export async function POST(request: Request) {
         avg_pace_s_per_km: pace,
         splits: splits && splits.length ? splits : null,
         route: route && route.length >= 2 ? route : null,
+        avg_heartrate: Number.isFinite(Number(body?.avg_heartrate)) && Number(body.avg_heartrate) > 0
+          ? Math.round(Number(body.avg_heartrate)) : null,
+        max_heartrate: Number.isFinite(Number(body?.max_heartrate)) && Number(body.max_heartrate) > 0
+          ? Math.round(Number(body.max_heartrate)) : null,
       })
       .select()
       .single()
@@ -86,6 +90,7 @@ export async function POST(request: Request) {
       plannedPace: matched.target_pace,
       actualDistanceM: distanceM,
       actualPaceSecPerKm: pace,
+      heartrate: saved.avg_heartrate ?? null,
     })
 
     await supabase.from('activities')

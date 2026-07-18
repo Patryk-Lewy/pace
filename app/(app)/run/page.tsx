@@ -36,6 +36,30 @@ function fmtPace(secPerKm: number | null): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+// Minimal Web Bluetooth typings (not in the standard TS lib)
+type BtCharacteristic = {
+  startNotifications: () => Promise<unknown>
+  addEventListener: (ev: string, cb: (e: Event) => void) => void
+}
+type BtDevice = {
+  gatt?: {
+    connect: () => Promise<{
+      getPrimaryService: (s: string) => Promise<{ getCharacteristic: (c: string) => Promise<BtCharacteristic> }>
+      disconnect: () => void
+    }>
+  }
+  addEventListener: (ev: string, cb: () => void) => void
+}
+type BtNavigator = Navigator & {
+  bluetooth?: { requestDevice: (opts: { filters: { services: string[] }[] }) => Promise<BtDevice> }
+}
+
+/** Parse a Heart Rate Measurement characteristic value (GATT spec). */
+function parseHeartRate(dv: DataView): number {
+  const flags = dv.getUint8(0)
+  return (flags & 0x1) ? dv.getUint16(1, true) : dv.getUint8(1)
+}
+
 /** Speak a Polish announcement via Web Speech (no-op when unsupported). */
 function speak(text: string) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -80,6 +104,45 @@ export default function RunPage() {
   const startIso = useRef<string>('')
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
   const watchId = useRef<number | null>(null)
+
+  // Heart rate via Web Bluetooth (optional chest-strap pairing)
+  const [hr, setHr] = useState<number | null>(null)
+  const [hrSupported, setHrSupported] = useState(false)
+  const hrStats = useRef({ sum: 0, n: 0, max: 0 })
+  const hrDisconnect = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    setHrSupported(typeof navigator !== 'undefined' && !!(navigator as BtNavigator).bluetooth)
+    return () => { hrDisconnect.current?.() }
+  }, [])
+
+  async function connectHr() {
+    try {
+      const bt = (navigator as BtNavigator).bluetooth
+      if (!bt) return
+      const device = await bt.requestDevice({ filters: [{ services: ['heart_rate'] }] })
+      const gatt = await device.gatt?.connect()
+      if (!gatt) return
+      const service = await gatt.getPrimaryService('heart_rate')
+      const char = await service.getCharacteristic('heart_rate_measurement')
+      await char.startNotifications()
+      char.addEventListener('characteristicvaluechanged', (e: Event) => {
+        const value = (e.target as unknown as { value?: DataView }).value
+        if (!value) return
+        const bpm = parseHeartRate(value)
+        if (bpm > 30 && bpm < 240) {
+          setHr(bpm)
+          if (runningRef.current) {
+            hrStats.current.sum += bpm
+            hrStats.current.n += 1
+            if (bpm > hrStats.current.max) hrStats.current.max = bpm
+          }
+        }
+      })
+      device.addEventListener('gattserverdisconnected', () => setHr(null))
+      hrDisconnect.current = () => { try { gatt.disconnect() } catch { /* ignore */ } }
+    } catch { /* user cancelled or pairing failed — stay silent */ }
+  }
 
   // Splits, route capture and auto-pause
   const splitsRef = useRef<number[]>([])
@@ -222,6 +285,8 @@ export default function RunPage() {
           start_date: startIso.current || new Date().toISOString(),
           splits: splitsRef.current,
           route: routeRef.current,
+          avg_heartrate: hrStats.current.n > 0 ? Math.round(hrStats.current.sum / hrStats.current.n) : null,
+          max_heartrate: hrStats.current.max > 0 ? hrStats.current.max : null,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -374,7 +439,26 @@ export default function RunPage() {
       <div className="flex" style={{ gap: 10, marginBottom: 14 }}>
         <Metric label="Tempo" value={fmtPace(curPace)} sub="/km" />
         <Metric label="Śr. tempo" value={fmtPace(avgPace)} sub="/km" />
-        <Metric label="Dystans" value={distKm.toFixed(2)} sub="km" accent />
+        {hr !== null ? (
+          <div style={{
+            flex: 1, textAlign: 'center', borderRadius: 18, padding: '14px 10px',
+            background: 'rgba(255,109,0,.1)', border: '1px solid rgba(255,109,0,.25)',
+          }}>
+            <div className="kick" style={{ fontSize: 9, color: 'var(--text-3)' }}>Tętno</div>
+            <div className="cond" style={{ fontSize: 28, marginTop: 3, color: 'var(--orange)' }}>{hr}</div>
+            <div style={{ font: '600 9px var(--font-barlow)', color: 'var(--text-3)' }}>bpm</div>
+          </div>
+        ) : hrSupported ? (
+          <button onClick={connectHr} className="press" style={{
+            flex: 1, borderRadius: 18, padding: '14px 6px', textAlign: 'center',
+            background: 'rgba(255,255,255,.05)', border: '1px dashed rgba(255,255,255,.2)', color: 'var(--text-2)',
+          }}>
+            <div style={{ fontSize: 18 }}>🫀</div>
+            <div style={{ font: '600 10px var(--font-barlow)', marginTop: 4 }}>Połącz pas HR</div>
+          </button>
+        ) : (
+          <Metric label="Dystans" value={distKm.toFixed(2)} sub="km" accent />
+        )}
       </div>
 
       {/* Controls */}
