@@ -19,9 +19,23 @@ function mondayOf(date: Date): Date {
   return x
 }
 
+/**
+ * Monday that week 1 of a plan starts on — the SINGLE source of truth for the
+ * plan timeline. Plans created on Monday or Tuesday start the same week
+ * (most of the week is still ahead); created Wednesday–Sunday they start the
+ * NEXT Monday, so the user never begins mid-week with "missed" workouts.
+ */
+export function planStartMonday(planCreatedAt: string): Date {
+  const created = new Date(planCreatedAt)
+  const monday = mondayOf(created)
+  const dow = (created.getDay() + 6) % 7 // 0=Mon … 6=Sun
+  if (dow >= 2) monday.setDate(monday.getDate() + 7)
+  return monday
+}
+
 /** Calendar date a planned workout falls on, derived from plan start + week/day. */
 export function computeWorkoutDate(planCreatedAt: string, weekNumber: number, dayOfWeek: string): Date {
-  const start = mondayOf(new Date(planCreatedAt))
+  const start = planStartMonday(planCreatedAt)
   const offset = (weekNumber - 1) * 7 + (DAY_INDEX[dayOfWeek] ?? 0)
   const d = new Date(start)
   d.setDate(d.getDate() + offset)

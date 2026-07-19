@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PlanParamsEditor from '@/components/PlanParamsEditor'
 import { metaFor } from '@/lib/workout-meta'
+import { planStartMonday } from '@/lib/workout-matching'
 import type { TrainingPlan } from '@/types/database'
 
 const DISTANCE_LABELS: Record<string, string> = {
@@ -18,11 +19,9 @@ const PHASE_COLORS: Record<string, string> = {
   'Tapering': 'var(--text-3)',
 }
 
-/** 1-based training week that "now" falls into, based on plan start (Monday-aligned). */
+/** 1-based training week that "now" falls into, based on the shared plan anchor. */
 function currentWeekNumber(createdAt: string, totalWeeks: number): number {
-  const start = new Date(createdAt)
-  start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)) // back to Monday
+  const start = planStartMonday(createdAt)
   const weeks = Math.floor((Date.now() - start.getTime()) / (7 * 86_400_000)) + 1
   return Math.min(Math.max(weeks, 1), totalWeeks)
 }

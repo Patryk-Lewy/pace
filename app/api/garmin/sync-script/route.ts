@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { computeWorkoutDate } from '@/lib/workout-matching'
 import type { Workout, TrainingPlan } from '@/types/database'
 
 const CORS_HEADERS = {
@@ -123,20 +124,12 @@ function workoutToGarminJson(w: Workout) {
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
-const DAY_OFFSET: Record<string, number> = {
-  mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6,
-}
-
 function computeDate(plan: TrainingPlan, w: Workout): string | null {
   if (w.scheduled_date) return w.scheduled_date
-
-  if (!plan.race_date) return null
-  const raceMs = new Date(plan.race_date).getTime()
-  // week 1 starts (total_weeks) weeks before race_date, on Monday
-  const startMs = raceMs - plan.total_weeks * 7 * 24 * 3600 * 1000
-  const dayOffset = DAY_OFFSET[w.day_of_week] ?? 0
-  const dateMs = startMs + (w.week_number - 1) * 7 * 24 * 3600 * 1000 + dayOffset * 24 * 3600 * 1000
-  return new Date(dateMs).toISOString().split('T')[0]
+  // Same anchor as the rest of the app (plan created_at → start Monday),
+  // instead of the old back-calculation from race_date.
+  const d = computeWorkoutDate(plan.created_at, w.week_number, w.day_of_week)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────

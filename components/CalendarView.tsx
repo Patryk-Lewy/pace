@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { metaFor, shortPace } from '@/lib/workout-meta'
+import { planStartMonday } from '@/lib/workout-matching'
 import type { Workout, TrainingPlan } from '@/types/database'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ export default function CalendarView({ plan, workouts }: { plan: TrainingPlan; w
   const [monthYear, setMonthYear] = useState({ year: today.getFullYear(), month: today.getMonth() })
   const [selectedKey, setSelectedKey] = useState(dateKey(today))
 
-  const planStart = getMondayOf(new Date(plan.created_at))
+  const planStart = planStartMonday(plan.created_at)
   const dateMap = buildDateMap(workouts, planStart)
   const todayKey = dateKey(today)
   const cells = monthCells(monthYear.year, monthYear.month)
