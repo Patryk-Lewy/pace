@@ -375,6 +375,12 @@ export default function RunPage() {
         )}
 
         <div className="flex flex-col" style={{ gap: 10 }}>
+          <button onClick={() => router.push('/exercises?r=stretching')}
+            className="press w-full flex items-center justify-between"
+            style={{ borderRadius: 14, padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text)' }}>🧘 Rozciągnij się po biegu</span>
+            <span style={{ font: '600 12px var(--font-barlow)', color: 'var(--green)' }}>~7 min ›</span>
+          </button>
           <ShareWorkoutButton data={shareData} />
           <button onClick={() => router.push('/dashboard')} className="press" style={{
             width: '100%', borderRadius: 16, padding: 15, background: 'var(--green)', color: '#000',

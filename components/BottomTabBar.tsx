@@ -7,7 +7,7 @@ const ACTIVE = 'var(--green)'
 const IDLE = 'rgba(255,255,255,.32)'
 
 // Routes that render immersively without the tab bar (own back button).
-const HIDDEN_ON = ['/race', '/run', '/onboarding', '/coach']
+const HIDDEN_ON = ['/race', '/run', '/onboarding', '/coach', '/exercises']
 
 function isHidden(pathname: string): boolean {
   if (HIDDEN_ON.some(r => pathname.startsWith(r))) return true

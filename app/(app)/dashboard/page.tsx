@@ -226,6 +226,19 @@ export default async function DashboardPage({
           <span style={{ color: 'var(--green)' }}>›</span>
         </div>
       </Link>
+
+      {/* Supplementary training entry */}
+      <Link href="/exercises" className="press block" style={{ marginTop: 12, textDecoration: 'none' }}>
+        <div className="flex items-center gap-3"
+          style={{ borderRadius: 18, padding: '15px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <span style={{ fontSize: 20 }}>🤸</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ font: '700 14px var(--font-barlow)' }}>Treningi uzupełniające</div>
+            <div style={{ font: '500 12px var(--font-barlow)', color: 'var(--text-3)' }}>Rozgrzewka, rozciąganie, core, skipy — z głosem</div>
+          </div>
+          <span style={{ color: 'var(--green)' }}>›</span>
+        </div>
+      </Link>
     </div>
   )
 }

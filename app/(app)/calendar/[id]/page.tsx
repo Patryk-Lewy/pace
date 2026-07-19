@@ -456,14 +456,22 @@ export default function WorkoutDetailPage() {
 
       {/* Actions */}
       <div className="flex flex-col gap-3">
-        {/* Start a live run */}
+        {/* Warm-up + start a live run */}
         {workout.workout_type !== 'rest' && !isCompleted && (
-          <button onClick={() => router.push('/run')}
-            className="press w-full"
-            style={{ borderRadius: 16, padding: 16, background: 'var(--green)', color: '#000',
-              font: '800 15px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', border: 'none' }}>
-            ▶ Zacznij trening
-          </button>
+          <>
+            <button onClick={() => router.push('/exercises?r=warmup')}
+              className="press w-full flex items-center justify-between"
+              style={{ borderRadius: 14, padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <span style={{ font: '600 13px var(--font-barlow)', color: 'var(--text)' }}>🤸 Zrób rozgrzewkę</span>
+              <span style={{ font: '600 12px var(--font-barlow)', color: 'var(--green)' }}>~6 min ›</span>
+            </button>
+            <button onClick={() => router.push('/run')}
+              className="press w-full"
+              style={{ borderRadius: 16, padding: 16, background: 'var(--green)', color: '#000',
+                font: '800 15px var(--font-barlow-condensed)', letterSpacing: 1.5, textTransform: 'uppercase', border: 'none' }}>
+              ▶ Zacznij trening
+            </button>
+          </>
         )}
         {!isCompleted ? (
           <button onClick={() => setStatus('completed')} disabled={saving}
