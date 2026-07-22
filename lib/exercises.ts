@@ -103,6 +103,68 @@ export const ROUTINES: Routine[] = [
       { name: 'Plecy — odcinek piersiowy', seconds: 45, desc: 'Roler pod łopatkami, ręce za głową, nie roluj lędźwi.' },
     ],
   },
+  {
+    id: 'drills',
+    title: 'Drills techniczne',
+    emoji: '🏃',
+    focus: 'Ekonomia biegu i technika',
+    when: 'Po rozgrzewce, przed akcentem (tempo/interwały)',
+    exercises: [
+      { name: 'Marsz na palcach', seconds: 30, desc: 'Wysoko na śródstopiu, wyprostowana sylwetka, aktywne łydki.' },
+      { name: 'Skip A', seconds: 30, desc: 'Wysokie kolano, biodro w górę, ląduj pod środkiem ciężkości.' },
+      { name: 'Skip B', seconds: 30, desc: 'Wyrzut podudzia z kolana i „drapanie" stopą o ziemię pod sobą.' },
+      { name: 'Skip C (pięty)', seconds: 30, desc: 'Pięty szybko do pośladków, wysoka kadencja, biodra stabilne.' },
+      { name: 'Doskoki (bounding)', seconds: 30, desc: 'Długie, sprężyste kroki-odbicia. Faza lotu, mocna praca ramion.' },
+      { name: 'Krok dostawny', seconds: 30, desc: 'Bokiem, sprężyste dostawianie stóp. Zmień kierunek w połowie.' },
+      { name: 'Przyspieszenia (stridy)', seconds: 40, desc: 'Płynne rozpędzenie do ~90% na 60-80 m, luźno. Powtórz kilka razy.' },
+    ],
+  },
+  {
+    id: 'hips',
+    title: 'Mobilność bioder',
+    emoji: '🦵',
+    focus: 'Zakres ruchu w biodrach',
+    when: 'W dni bez biegania lub po lekkim biegu',
+    exercises: [
+      { name: 'Krążenia bioder w klęku', seconds: 40, desc: 'Klęk podparty, kolano zatacza duże koła. Zmień nogę w połowie.' },
+      { name: 'Otwieranie bioder („90/90")', seconds: 60, desc: 'Siad, obie nogi zgięte 90°, przenoś kolana z boku na bok.' },
+      { name: 'Wykrok z rotacją', seconds: 50, desc: 'Głęboki wykrok, łokieć do podłogi przy przedniej stopie, skręt tułowia. Zmień stronę.' },
+      { name: 'Gołąb (pigeon)', seconds: 60, desc: 'Przednia goleń w poprzek, tylna noga wyprostowana, opadaj tułowiem. Zmień w połowie.' },
+      { name: 'Most biodrowy jednonóż', seconds: 40, desc: 'Jedna noga uniesiona, wypchnij biodra pośladkiem. Zmień w połowie.' },
+      { name: 'Przysiad głęboki — trzymanie', seconds: 45, desc: 'Zejdź w pełny przysiad, łokcie rozpychają kolana, plecy proste.' },
+    ],
+  },
+  {
+    id: 'feet',
+    title: 'Stopy i profilaktyka',
+    emoji: '🦶',
+    focus: 'Wzmocnienie stóp i stawu skokowego',
+    when: '2-3× w tygodniu, także boso przed TV',
+    exercises: [
+      { name: 'Wspięcia na palce', seconds: 45, desc: 'Powoli w górę i w dół, pełen zakres. Trzymaj się ściany dla równowagi.' },
+      { name: 'Wspięcia na zgiętych kolanach', seconds: 40, desc: 'Kolana lekko ugięte — angażuje płaszczkowaty. Powoli.' },
+      { name: 'Chód na piętach', seconds: 30, desc: 'Palce w górę, idź na piętach — wzmacnia przód goleni (piszczel).' },
+      { name: 'Zwijanie ręcznika palcami', seconds: 40, desc: 'Stopą przyciągaj ręcznik palcami. Zmień stopę w połowie.' },
+      { name: 'Krótka stopa („short foot")', seconds: 40, desc: 'Bez zginania palców „skróć" stopę, unosząc podbicie. Utrzymaj napięcie.' },
+      { name: 'Balans na jednej nodze', seconds: 40, desc: 'Stój na jednej nodze, oczy zamknięte jeśli dasz radę. Zmień w połowie.' },
+      { name: 'Wspięcia jednonóż', seconds: 40, desc: 'Na jednej nodze, kontrolowane wspięcia. Zmień w połowie.' },
+    ],
+  },
+  {
+    id: 'express',
+    title: 'Ekspres 5 minut',
+    emoji: '⏱️',
+    focus: 'Gdy mało czasu — minimum mobilności',
+    when: 'Przed biegiem, gdy się spieszysz',
+    exercises: [
+      { name: 'Trucht w miejscu', seconds: 45, desc: 'Rozgrzej ciało, rozluźnij ramiona.' },
+      { name: 'Wymachy nóg przód-tył', seconds: 40, desc: 'Trzymaj się podpory. Zmień nogę w połowie.' },
+      { name: 'Wykroki dynamiczne', seconds: 40, desc: 'Naprzemienne, tułów prosto.' },
+      { name: 'Skip A', seconds: 30, desc: 'Wysokie kolana, aktywne ramiona.' },
+      { name: 'Skip C (pięty)', seconds: 30, desc: 'Pięty do pośladków, szybko.' },
+      { name: 'Przyspieszenie', seconds: 35, desc: 'Płynnie rozpędź się do ~85%, potem luźno. Gotowy do biegu!' },
+    ],
+  },
 ]
 
 export function routineDuration(r: Routine): number {
@@ -111,4 +173,11 @@ export function routineDuration(r: Routine): number {
 
 export function findRoutine(id: string | null): Routine | null {
   return ROUTINES.find(r => r.id === id) ?? null
+}
+
+/** Compact catalog for the AI coach's system prompt. */
+export function routineCatalog(): string {
+  return ROUTINES.map(r =>
+    `- ${r.title} (${Math.round(routineDuration(r) / 60)} min) — ${r.focus}; kiedy: ${r.when}`
+  ).join('\n')
 }

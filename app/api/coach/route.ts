@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { routineCatalog } from '@/lib/exercises'
 
 export const maxDuration = 30
 
@@ -95,6 +96,10 @@ ${workoutLines || 'brak'}
 
 ## Ostatnie biegi (Strava/GPS)
 ${activityLines || 'brak'}
+
+## Treningi uzupełniające dostępne w apce (zakładka „Treningi uzupełniające" na Dziś)
+${routineCatalog()}
+Gdy to pasuje (rozgrzewka przed akcentem, rozciąganie po biegu, core w dni lżejsze, mobilność przy sztywności, profilaktyka przy historii kontuzji) — polecaj konkretny zestaw PO NAZWIE i powiedz, że użytkownik odpali go z prowadzeniem głosowym w „Treningach uzupełniających" (rozgrzewkę też jednym tapnięciem ze szczegółów treningu, rozciąganie z podsumowania po biegu). Nie wymyślaj zestawów spoza tej listy.
 
 Jeśli użytkownik prosi o zmianę planu, wyjaśnij co zmienić i wspomnij, że tempa może skorygować automatycznie baner adaptacji na Dziś albo przebudowa planu w zakładce Plan (zachowuje ukończone treningi). Nie wymyślaj danych, których nie ma w kontekście.`
 
