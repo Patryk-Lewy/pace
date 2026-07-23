@@ -217,8 +217,71 @@ export function animFor(name: string): Anim {
   return 'rest'
 }
 
-/** YouTube search URL for a real-human demo of the exercise. */
-export function demoSearchUrl(name: string): string {
-  const q = encodeURIComponent(`${name} ćwiczenie technika`)
-  return `https://www.youtube.com/results?search_query=${q}`
+// English search terms — fitness demos are far easier to find in English than
+// by the Polish exercise name. Keyed by exact exercise name.
+const DEMO_QUERY: Record<string, string> = {
+  'Trucht w miejscu': 'jogging in place warm up',
+  'Krążenia ramion': 'arm circles warm up',
+  'Krążenia bioder': 'standing hip circles warm up',
+  'Wymachy nóg przód-tył': 'leg swings front to back warm up',
+  'Wymachy nóg na boki': 'lateral leg swings warm up',
+  'Skip A': 'A skip running drill',
+  'Skip A w miejscu': 'A skip drill in place',
+  'Skip B': 'B skip running drill',
+  'Skip C': 'butt kicks running drill',
+  'Skip C (pięty)': 'butt kicks running drill',
+  'Przysiady': 'bodyweight squat',
+  'Przysiad głęboki — trzymanie': 'deep squat hold mobility',
+  'Wykroki dynamiczne': 'walking lunges exercise',
+  'Wykrok z rotacją': "world's greatest stretch",
+  'Wykroki z wyskokiem': 'jumping lunges exercise',
+  'Łydki przy ścianie': 'wall calf stretch',
+  'Czworogłowe uda': 'standing quad stretch',
+  'Dwugłowe uda': 'standing hamstring stretch',
+  'Zginacze bioder': 'kneeling hip flexor stretch',
+  'Pośladki („czwórka")': 'figure four glute stretch',
+  'Przywodziciele': 'side lunge adductor stretch',
+  'Skłon rozluźniający': 'standing forward fold stretch',
+  'Plank': 'forearm plank exercise',
+  'Plank — finał': 'forearm plank exercise',
+  'Plank boczny — lewa': 'side plank exercise',
+  'Plank boczny — prawa': 'side plank exercise',
+  'Dead bug': 'dead bug exercise',
+  'Bird dog': 'bird dog exercise',
+  'Glute bridge': 'glute bridge exercise',
+  'Most biodrowy jednonóż': 'single leg glute bridge',
+  'Mountain climbers': 'mountain climbers exercise',
+  'Pajacyki': 'jumping jacks',
+  'Podskoki obunóż': 'pogo jumps drill',
+  'Przeskoki boczne': 'lateral bounds exercise',
+  'Doskoki (bounding)': 'bounding running drill',
+  'Krok dostawny': 'lateral shuffle drill',
+  'Marsz na palcach': 'toe walk warm up',
+  'Przyspieszenia (stridy)': 'running strides drill',
+  'Przyspieszenie': 'running strides drill',
+  'Łydki': 'calf foam rolling',
+  'Uda — przód': 'quad foam rolling',
+  'Uda — tył': 'hamstring foam rolling',
+  'Pośladki': 'glute foam rolling',
+  'Pasmo biodrowo-piszczelowe': 'IT band foam rolling',
+  'Plecy — odcinek piersiowy': 'thoracic spine foam rolling',
+  'Krążenia bioder w klęku': 'quadruped hip circles mobility',
+  'Otwieranie bioder („90/90")': '90 90 hip switch stretch',
+  'Gołąb (pigeon)': 'pigeon pose hip stretch',
+  'Wspięcia na palce': 'standing calf raise',
+  'Wspięcia na zgiętych kolanach': 'seated calf raise soleus',
+  'Chód na piętach': 'heel walk shin exercise',
+  'Zwijanie ręcznika palcami': 'towel curl foot exercise',
+  'Krótka stopa („short foot")': 'short foot exercise',
+  'Balans na jednej nodze': 'single leg balance exercise',
+  'Wspięcia jednonóż': 'single leg calf raise',
+}
+
+/** YouTube search URL for a real-human demo — English term when available.
+ *  Returns null for rest/break steps that don't warrant a demo. */
+export function demoSearchUrl(name: string): string | null {
+  const n = name.toLowerCase()
+  if (n.includes('odpoczynek') || n.includes('przerwa')) return null
+  const q = DEMO_QUERY[name] ?? `${name} exercise`
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`
 }

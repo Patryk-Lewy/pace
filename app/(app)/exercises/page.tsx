@@ -185,9 +185,11 @@ function RoutinePlayer({ routine, onExit }: { routine: Routine; onExit: () => vo
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
         <div className="cond" style={{ fontSize: 28, marginBottom: 2 }}>{cur.name}</div>
 
-        <div className="flex items-center justify-center" style={{ gap: 14, margin: '4px 0' }}>
-          <ExerciseFigure anim={animFor(cur.name)} size={116} />
-          <div className="cond" style={{ fontSize: 84, color: remaining <= 5 ? 'var(--orange)' : 'var(--green)', minWidth: 96 }}>
+        <div className="flex items-center justify-center" style={{ gap: 10, margin: '6px 0' }}>
+          <div style={{ width: 128, height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ExerciseFigure anim={animFor(cur.name)} size={112} />
+          </div>
+          <div className="cond" style={{ fontSize: 80, color: remaining <= 5 ? 'var(--orange)' : 'var(--green)', minWidth: 92 }}>
             {remaining}
           </div>
         </div>
@@ -196,11 +198,13 @@ function RoutinePlayer({ routine, onExit }: { routine: Routine; onExit: () => vo
           {cur.desc}
         </p>
 
-        <a href={demoSearchUrl(cur.name)} target="_blank" rel="noopener noreferrer" className="press"
-          style={{ marginTop: 12, font: '600 12px var(--font-barlow)', color: 'var(--green)', textDecoration: 'none',
-            border: '1px solid rgba(0,230,118,.3)', borderRadius: 20, padding: '6px 14px' }}>
-          ▶ Zobacz demo wideo
-        </a>
+        {demoSearchUrl(cur.name) && (
+          <a href={demoSearchUrl(cur.name)!} target="_blank" rel="noopener noreferrer" className="press"
+            style={{ marginTop: 12, font: '600 12px var(--font-barlow)', color: 'var(--green)', textDecoration: 'none',
+              border: '1px solid rgba(0,230,118,.3)', borderRadius: 20, padding: '6px 14px' }}>
+            ▶ Zobacz demo wideo
+          </a>
+        )}
 
         {next && (
           <p style={{ font: '600 12px var(--font-barlow)', color: 'var(--text-3)', marginTop: 14 }}>
