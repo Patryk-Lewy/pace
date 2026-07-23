@@ -5,7 +5,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ROUTINES, routineDuration, findRoutine, type Routine } from '@/lib/exercises'
+import { ROUTINES, routineDuration, findRoutine, animFor, demoSearchUrl, type Routine } from '@/lib/exercises'
+import ExerciseFigure from '@/components/ExerciseFigure'
 
 function speak(text: string) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -182,15 +183,27 @@ function RoutinePlayer({ routine, onExit }: { routine: Routine; onExit: () => vo
 
       {/* Center */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-        <div className="cond" style={{ fontSize: 34, marginBottom: 10 }}>{cur.name}</div>
-        <div className="cond" style={{ fontSize: 96, color: remaining <= 5 ? 'var(--orange)' : 'var(--green)' }}>
-          {remaining}
+        <div className="cond" style={{ fontSize: 28, marginBottom: 2 }}>{cur.name}</div>
+
+        <div className="flex items-center justify-center" style={{ gap: 14, margin: '4px 0' }}>
+          <ExerciseFigure anim={animFor(cur.name)} size={116} />
+          <div className="cond" style={{ fontSize: 84, color: remaining <= 5 ? 'var(--orange)' : 'var(--green)', minWidth: 96 }}>
+            {remaining}
+          </div>
         </div>
-        <p style={{ font: '400 14px/1.5 var(--font-barlow)', color: 'var(--text-2)', maxWidth: 300, marginTop: 12 }}>
+
+        <p style={{ font: '400 13px/1.5 var(--font-barlow)', color: 'var(--text-2)', maxWidth: 320 }}>
           {cur.desc}
         </p>
+
+        <a href={demoSearchUrl(cur.name)} target="_blank" rel="noopener noreferrer" className="press"
+          style={{ marginTop: 12, font: '600 12px var(--font-barlow)', color: 'var(--green)', textDecoration: 'none',
+            border: '1px solid rgba(0,230,118,.3)', borderRadius: 20, padding: '6px 14px' }}>
+          ▶ Zobacz demo wideo
+        </a>
+
         {next && (
-          <p style={{ font: '600 12px var(--font-barlow)', color: 'var(--text-3)', marginTop: 18 }}>
+          <p style={{ font: '600 12px var(--font-barlow)', color: 'var(--text-3)', marginTop: 14 }}>
             Następne: {next.name} · {next.seconds}s
           </p>
         )}

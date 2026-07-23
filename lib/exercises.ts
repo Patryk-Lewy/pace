@@ -181,3 +181,44 @@ export function routineCatalog(): string {
     `- ${r.title} (${Math.round(routineDuration(r) / 60)} min) — ${r.focus}; kiedy: ${r.when}`
   ).join('\n')
 }
+
+// ─── Movement archetypes (drive the animated figure) ─────────────────────────
+
+export type Anim =
+  | 'run' | 'highknee' | 'jumpingjack' | 'armcircle' | 'hipcircle' | 'legswing'
+  | 'squat' | 'lunge' | 'plank' | 'sideplank' | 'bridge' | 'fold' | 'quadstretch'
+  | 'calfraise' | 'balance' | 'roll' | 'rest'
+
+/** Map an exercise name to the closest movement archetype (order matters —
+ *  specific keywords before general ones). */
+export function animFor(name: string): Anim {
+  const n = name.toLowerCase()
+  if (n.includes('odpoczynek') || n.includes('przerwa') || n.includes('ręcznik') || n.includes('krótka stopa')) return 'rest'
+  if (n.includes('plank boczny')) return 'sideplank'
+  if (n.includes('plank') || n.includes('dead bug') || n.includes('bird dog') || n.includes('mountain')) return 'plank'
+  if (n.includes('most') || n.includes('glute') || n.includes('bridge')) return 'bridge'
+  if (n.includes('rol')) return 'roll'
+  if (n.includes('pajacyk') || n.includes('podskok') || n.includes('przeskok')) return 'jumpingjack'
+  if (n.includes('krążenia ramion')) return 'armcircle'
+  if (n.includes('krążenia bioder') || n.includes('otwieranie bioder') || n.includes('90/90')) return 'hipcircle'
+  if (n.includes('wymach')) return 'legswing'
+  if (n.includes('wykrok')) return 'lunge'
+  if (n.includes('przysiad')) return 'squat'
+  if (n.includes('skip a') || n.includes('skip b') || n.includes('wysokie kolan')) return 'highknee'
+  if (n.includes('skip c') || n.includes('pięt') && n.includes('pośladk')) return 'highknee'
+  if (n.includes('czworogłow')) return 'quadstretch'
+  if (n.includes('wspięcia') || n.includes('chód na piętach') || n.includes('na palcach')) return 'calfraise'
+  if (n.includes('balans') || n.includes('jednej nodze')) return 'balance'
+  if (n.includes('rozciąg') || n.includes('skłon') || n.includes('dwugłow') || n.includes('zginacz')
+      || n.includes('pośladk') || n.includes('przywodziciel') || n.includes('gołąb') || n.includes('pigeon')
+      || n.includes('łydki')) return 'fold'
+  if (n.includes('trucht') || n.includes('marsz') || n.includes('doskok') || n.includes('bounding')
+      || n.includes('dostawn') || n.includes('przyspieszen') || n.includes('strid') || n.includes('rytm')) return 'run'
+  return 'rest'
+}
+
+/** YouTube search URL for a real-human demo of the exercise. */
+export function demoSearchUrl(name: string): string {
+  const q = encodeURIComponent(`${name} ćwiczenie technika`)
+  return `https://www.youtube.com/results?search_query=${q}`
+}
