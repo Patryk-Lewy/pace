@@ -111,135 +111,79 @@ html, body {
 }
 
 /* ─── Animated exercise figure ─────────────────────────────────────────────── */
-.ef { display: block; }
-.ef-head, .ef-torso, .ef-limb { fill: var(--text-2); }
-.ef-head { fill: var(--green); }
-.ef-limb, .ef-upper, .ef-fig { transform-box: fill-box; will-change: transform; }
-.ef-limb  { transform-origin: 50% 0; }           /* joint at top of each limb */
-.ef-upper { transform-origin: 50% 100%; }        /* fold from the hips */
-.ef-fig   { transform-origin: 50% 50%; }
+.ef { display: block; margin: 0 auto; }
+.ef-head, .sp-head { fill: var(--green); }
+.ef-limb, .ef-torso, .ac-arm { fill: var(--text-2); }
+.sp-line { stroke: var(--text-2); stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ef-limb, .ef-fig, .sp, .sp-upper, .hc-hips, .ac-arm { transform-box: fill-box; }
+.ef-limb { transform-origin: 50% 0; }
+.ef-fig  { transform-origin: 50% 50%; }
+.ac-arm  { transform-origin: 50% 0; animation: efSpin 1.4s linear infinite; }
+.ef-arm-l { transform: rotate(20deg); }
+.ef-arm-r { transform: rotate(-20deg); }
+.ef-leg-l { transform: rotate(10deg); }
+.ef-leg-r { transform: rotate(-10deg); }
 
-/* run / march — legs & arms alternate, clear bounce */
-.ef[data-anim="run"]  .ef-fig   { animation: efBounce .5s ease-in-out infinite; }
-.ef[data-anim="run"]  .ef-leg-l { animation: efSwingA .9s ease-in-out infinite; }
-.ef[data-anim="run"]  .ef-leg-r { animation: efSwingB .9s ease-in-out infinite; }
-.ef[data-anim="run"]  .ef-arm-l { animation: efSwingB .9s ease-in-out infinite; }
-.ef[data-anim="run"]  .ef-arm-r { animation: efSwingA .9s ease-in-out infinite; }
-
-/* high knees / skip A — big forward knee drive */
+/* front-facing movements */
+.ef[data-anim="run"] .ef-fig   { animation: efBounce .5s ease-in-out infinite; }
+.ef[data-anim="run"] .ef-leg-l { animation: efSwingA .9s ease-in-out infinite; }
+.ef[data-anim="run"] .ef-leg-r { animation: efSwingB .9s ease-in-out infinite; }
+.ef[data-anim="run"] .ef-arm-l { animation: efSwingB .9s ease-in-out infinite; }
+.ef[data-anim="run"] .ef-arm-r { animation: efSwingA .9s ease-in-out infinite; }
 .ef[data-anim="highknee"] .ef-fig   { animation: efBounce .42s ease-in-out infinite; }
 .ef[data-anim="highknee"] .ef-leg-l { animation: efKneeA .74s ease-in-out infinite; }
 .ef[data-anim="highknee"] .ef-leg-r { animation: efKneeB .74s ease-in-out infinite; }
 .ef[data-anim="highknee"] .ef-arm-l { animation: efSwingB .74s ease-in-out infinite; }
 .ef[data-anim="highknee"] .ef-arm-r { animation: efSwingA .74s ease-in-out infinite; }
-
-/* jumping jacks — arms up/out, legs spread, bounce */
 .ef[data-anim="jumpingjack"] .ef-fig   { animation: efBounce .5s ease-in-out infinite; }
 .ef[data-anim="jumpingjack"] .ef-arm-l { animation: efJackArmL .5s ease-in-out infinite; }
 .ef[data-anim="jumpingjack"] .ef-arm-r { animation: efJackArmR .5s ease-in-out infinite; }
 .ef[data-anim="jumpingjack"] .ef-leg-l { animation: efJackLegL .5s ease-in-out infinite; }
 .ef[data-anim="jumpingjack"] .ef-leg-r { animation: efJackLegR .5s ease-in-out infinite; }
-
-/* arm circles — full continuous rotation */
-.ef[data-anim="armcircle"] .ef-arm-l { animation: efSpin 1.3s linear infinite; }
-.ef[data-anim="armcircle"] .ef-arm-r { animation: efSpin 1.3s linear infinite; }
-
-/* hip circles — figure orbits in a small circle */
-.ef[data-anim="hipcircle"] .ef-fig { animation: efSway 1.8s ease-in-out infinite; }
-
-/* leg swing — one leg pendulums front-back */
-.ef[data-anim="legswing"] .ef-leg-r { animation: efPendulum 1.2s ease-in-out infinite; }
-.ef[data-anim="legswing"] .ef-arm-r { animation: efPendulumS 1.2s ease-in-out infinite; }
-
-/* squat — figure sinks deep and rises, arms reach forward */
+.ef[data-anim="legswing"] .ef-leg-r { animation: efLat 1.2s ease-in-out infinite; }
 .ef[data-anim="squat"] .ef-fig   { animation: efSquat 1.5s ease-in-out infinite; }
 .ef[data-anim="squat"] .ef-arm-l { animation: efReachL 1.5s ease-in-out infinite; }
 .ef[data-anim="squat"] .ef-arm-r { animation: efReachR 1.5s ease-in-out infinite; }
-
-/* lunge — visibly lunges down and back up in a split stance */
-.ef[data-anim="lunge"] .ef-fig   { animation: efBob 1.6s ease-in-out infinite; }
-.ef[data-anim="lunge"] .ef-leg-l { animation: efLungeL 1.6s ease-in-out infinite; }
-.ef[data-anim="lunge"] .ef-leg-r { animation: efLungeR 1.6s ease-in-out infinite; }
-.ef[data-anim="lunge"] .ef-arm-l { transform: rotate(20deg); }
-.ef[data-anim="lunge"] .ef-arm-r { transform: rotate(-20deg); }
-
-/* plank — horizontal hold with an alternating leg raise for visible motion */
-.ef[data-anim="plank"]           { transform: rotate(90deg); }
-.ef[data-anim="plank"] .ef-fig   { animation: efBreath 2.4s ease-in-out infinite; }
-.ef[data-anim="plank"] .ef-arm-l { transform: rotate(150deg); }
-.ef[data-anim="plank"] .ef-arm-r { transform: rotate(150deg); }
-.ef[data-anim="plank"] .ef-leg-l { transform: rotate(2deg); }
-.ef[data-anim="plank"] .ef-leg-r { animation: efLegLift 1.8s ease-in-out infinite; }
-
-/* side plank — top arm opens and closes */
-.ef[data-anim="sideplank"]           { transform: rotate(65deg); }
-.ef[data-anim="sideplank"] .ef-fig   { animation: efBreath 2.6s ease-in-out infinite; }
-.ef[data-anim="sideplank"] .ef-arm-r { animation: efArmOpen 2.6s ease-in-out infinite; }
-
-/* glute bridge — hips lift up and down (horizontal figure) */
-.ef[data-anim="bridge"]           { transform: rotate(90deg); }
-.ef[data-anim="bridge"] .ef-fig   { animation: efBridge 1.7s ease-in-out infinite; }
-.ef[data-anim="bridge"] .ef-leg-l { transform: rotate(120deg); }
-.ef[data-anim="bridge"] .ef-leg-r { transform: rotate(120deg); }
-
-/* forward fold / general stretch — upper body bends over and up, repeatedly */
-.ef[data-anim="fold"] .ef-upper { animation: efFold 2.4s ease-in-out infinite; }
-
-/* standing quad stretch — heel folds up to the glute and releases */
-.ef[data-anim="quadstretch"] .ef-fig   { animation: efTilt 2.4s ease-in-out infinite; }
-.ef[data-anim="quadstretch"] .ef-leg-r { animation: efHeelUp 2.4s ease-in-out infinite; }
-.ef[data-anim="quadstretch"] .ef-arm-r { transform: rotate(150deg); }
-
-/* calf raises — clear rise onto toes and back */
 .ef[data-anim="calfraise"] .ef-fig { animation: efRaise 1.2s ease-in-out infinite; }
-
-/* single-leg balance — lifted leg raises/lowers, arms counterbalance */
-.ef[data-anim="balance"] .ef-fig   { animation: efTilt 2.4s ease-in-out infinite; }
-.ef[data-anim="balance"] .ef-leg-r { animation: efBalLeg 2.4s ease-in-out infinite; }
-.ef[data-anim="balance"] .ef-arm-l { transform: rotate(38deg); }
-.ef[data-anim="balance"] .ef-arm-r { transform: rotate(-38deg); }
-
-/* foam rolling — horizontal figure rolls back and forth */
-.ef[data-anim="roll"]           { transform: rotate(90deg); }
-.ef[data-anim="roll"] .ef-fig   { animation: efRoll 1.8s ease-in-out infinite; }
-
-/* rest — breathing with a gentle arm sway */
 .ef[data-anim="rest"] .ef-fig   { animation: efBreath 3s ease-in-out infinite; }
-.ef[data-anim="rest"] .ef-arm-l { animation: efSwayArmL 3s ease-in-out infinite; }
-.ef[data-anim="rest"] .ef-arm-r { animation: efSwayArmR 3s ease-in-out infinite; }
+.ef[data-anim="rest"] .ef-arm-l { animation: efSwayL 3s ease-in-out infinite; }
+.ef[data-anim="rest"] .ef-arm-r { animation: efSwayR 3s ease-in-out infinite; }
 
-@keyframes efBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
-@keyframes efBob    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
-@keyframes efBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
-@keyframes efSwingA { 0%,100% { transform: rotate(34deg); } 50% { transform: rotate(-34deg); } }
-@keyframes efSwingB { 0%,100% { transform: rotate(-34deg); } 50% { transform: rotate(34deg); } }
-@keyframes efKneeA  { 0%,100% { transform: rotate(62deg); } 50% { transform: rotate(-4deg); } }
-@keyframes efKneeB  { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(62deg); } }
-@keyframes efJackArmL { 0%,100% { transform: rotate(8deg); } 50% { transform: rotate(166deg); } }
-@keyframes efJackArmR { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(-166deg); } }
-@keyframes efJackLegL { 0%,100% { transform: rotate(4deg); } 50% { transform: rotate(30deg); } }
-@keyframes efJackLegR { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(-30deg); } }
-@keyframes efSpin     { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-@keyframes efSway     { 0%,100% { transform: translate(0,0); } 25% { transform: translate(7px,-3px); } 50% { transform: translate(0,-6px); } 75% { transform: translate(-7px,-3px); } }
-@keyframes efPendulum { 0%,100% { transform: rotate(50deg); } 50% { transform: rotate(-50deg); } }
-@keyframes efPendulumS { 0%,100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
-@keyframes efSquat    { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(22px) scaleY(.78); } }
-@keyframes efReachL   { 0%,100% { transform: rotate(8deg); } 50% { transform: rotate(-80deg); } }
-@keyframes efReachR   { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(-80deg); } }
-@keyframes efLungeL   { 0%,100% { transform: rotate(-14deg); } 50% { transform: rotate(-34deg); } }
-@keyframes efLungeR   { 0%,100% { transform: rotate(14deg); } 50% { transform: rotate(34deg); } }
-@keyframes efLegLift  { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(-32deg); } }
-@keyframes efArmOpen  { 0%,100% { transform: rotate(178deg); } 50% { transform: rotate(120deg); } }
-@keyframes efBridge   { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-16px); } }
-@keyframes efFold     { 0%,100% { transform: rotate(4deg); } 50% { transform: rotate(64deg); } }
-@keyframes efHeelUp   { 0%,100% { transform: rotate(118deg); } 50% { transform: rotate(152deg); } }
-@keyframes efRaise    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-@keyframes efTilt     { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
-@keyframes efBalLeg   { 0%,100% { transform: rotate(-14deg); } 50% { transform: rotate(-48deg); } }
-@keyframes efRoll     { 0%,100% { transform: translateX(-11px); } 50% { transform: translateX(11px); } }
-@keyframes efSwayArmL { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(10deg); } }
-@keyframes efSwayArmR { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-10deg); } }
+/* side-profile poses */
+.sp-bob    { animation: spBob 1.7s ease-in-out infinite; }
+.sp-breath { animation: spBreath 2.6s ease-in-out infinite; }
+.sp-bridge { transform-origin: 50% 100%; animation: spBridge 1.8s ease-in-out infinite; }
+.sp-sway   { transform-origin: 50% 100%; animation: spSway 2.8s ease-in-out infinite; }
+.sp-roll   { animation: spRoll 1.8s ease-in-out infinite; }
+.sp-fold .sp-upper { transform-origin: 50% 100%; animation: spFold 2.6s ease-in-out infinite; }
+.hc-hips   { animation: hcCircle 2s linear infinite; }
+
+@keyframes efBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes efBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes efSwingA { 0%,100% { transform: rotate(32deg); } 50% { transform: rotate(-32deg); } }
+@keyframes efSwingB { 0%,100% { transform: rotate(-32deg); } 50% { transform: rotate(32deg); } }
+@keyframes efKneeA  { 0%,100% { transform: rotate(58deg); } 50% { transform: rotate(2deg); } }
+@keyframes efKneeB  { 0%,100% { transform: rotate(2deg); } 50% { transform: rotate(58deg); } }
+@keyframes efJackArmL { 0%,100% { transform: rotate(20deg); } 50% { transform: rotate(158deg); } }
+@keyframes efJackArmR { 0%,100% { transform: rotate(-20deg); } 50% { transform: rotate(-158deg); } }
+@keyframes efJackLegL { 0%,100% { transform: rotate(6deg); } 50% { transform: rotate(30deg); } }
+@keyframes efJackLegR { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(-30deg); } }
+@keyframes efSpin   { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes efLat    { 0%,100% { transform: rotate(-38deg); } 50% { transform: rotate(20deg); } }
+@keyframes efSquat  { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(20px) scaleY(.8); } }
+@keyframes efReachL { 0%,100% { transform: rotate(20deg); } 50% { transform: rotate(-78deg); } }
+@keyframes efReachR { 0%,100% { transform: rotate(-20deg); } 50% { transform: rotate(-78deg); } }
+@keyframes efRaise  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-11px); } }
+@keyframes efSwayL  { 0%,100% { transform: rotate(20deg); } 50% { transform: rotate(30deg); } }
+@keyframes efSwayR  { 0%,100% { transform: rotate(-20deg); } 50% { transform: rotate(-30deg); } }
+@keyframes spBob    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+@keyframes spBreath { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes spBridge { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.14); } }
+@keyframes spSway   { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes spRoll   { 0%,100% { transform: translateX(-10px); } 50% { transform: translateX(10px); } }
+@keyframes spFold   { 0% { transform: rotate(8deg); } 50% { transform: rotate(158deg); } 100% { transform: rotate(8deg); } }
+@keyframes hcCircle { 0% { transform: translate(4px,0); } 25% { transform: translate(0,-4px); } 50% { transform: translate(-4px,0); } 75% { transform: translate(0,4px); } 100% { transform: translate(4px,0); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .ef * { animation-duration: 2.4s; }
+  .ef *, .sp, .sp-upper, .hc-hips, .ac-arm { animation-duration: 3s; }
 }
