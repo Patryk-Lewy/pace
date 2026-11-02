@@ -40,8 +40,11 @@ export async function POST() {
 
     for (const run of fresh) {
       const row = garminToActivityRow(run, user.id)
-      const { data: saved } = await supabase.from('activities').insert(row).select().single()
-      if (!saved) continue
+      const { data: saved, error: insertErr } = await supabase.from('activities').insert(row).select().single()
+      if (insertErr || !saved) {
+        console.error(`[garmin/sync] insert failed for activity ${run.activityId}:`, insertErr)
+        continue
+      }
       synced++
 
       // Match to the planned workout on that day (skip GPS-noise-length runs)
