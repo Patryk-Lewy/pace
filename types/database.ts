@@ -24,6 +24,7 @@ export type Database = {
           created_at: string
           distance_m: number | null
           elapsed_time_s: number | null
+          garmin_id: number | null
           hidden: boolean
           id: string
           matched_workout_id: string | null
@@ -47,6 +48,7 @@ export type Database = {
           created_at?: string
           distance_m?: number | null
           elapsed_time_s?: number | null
+          garmin_id?: number | null
           hidden?: boolean
           id?: string
           matched_workout_id?: string | null
@@ -70,6 +72,7 @@ export type Database = {
           created_at?: string
           distance_m?: number | null
           elapsed_time_s?: number | null
+          garmin_id?: number | null
           hidden?: boolean
           id?: string
           matched_workout_id?: string | null
@@ -139,6 +142,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      garmin_tokens: {
+        Row: {
+          access_token: string | null
+          api_key: string
+          created_at: string
+          last_sync: string | null
+          token_expires_at: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          api_key: string
+          created_at?: string
+          last_sync?: string | null
+          token_expires_at?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          api_key?: string
+          created_at?: string
+          last_sync?: string | null
+          token_expires_at?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       push_subscriptions: {
         Row: {
@@ -437,6 +470,7 @@ export type TrainingPlan       = Database['public']['Tables']['training_plans'][
 export type Workout            = Database['public']['Tables']['workouts']['Row']
 export type AiComment          = Database['public']['Tables']['ai_comments']['Row']
 export type StravaToken        = Database['public']['Tables']['strava_tokens']['Row']
+export type GarminToken        = Database['public']['Tables']['garmin_tokens']['Row']
 export type Activity           = Database['public']['Tables']['activities']['Row']
 export type PushSubscriptionRow = Database['public']['Tables']['push_subscriptions']['Row']
 

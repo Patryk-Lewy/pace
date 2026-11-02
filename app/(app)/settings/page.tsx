@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import NotificationToggle from '@/components/NotificationToggle'
+import GarminCard from '@/components/GarminCard'
 import { parseCustomBounds, HR_ZONES } from '@/lib/heart-rate-zones'
 
 // ─── Helper components ────────────────────────────────────────────────────────
@@ -397,21 +398,8 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Garmin Connect — sync lives on the Plan screen */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
-                style={{ background: 'var(--surface2)' }}>⌚</div>
-              <div>
-                <p className="text-sm font-semibold">Garmin Connect</p>
-                <p className="text-xs" style={{ color: 'var(--text-3)' }}>Nie połączono</p>
-              </div>
-            </div>
-            <Link href="/plan" className="text-xs font-black uppercase tracking-widest"
-              style={{ color: 'var(--green)', fontFamily: 'var(--font-barlow-condensed), sans-serif' }}>
-              Połącz
-            </Link>
-          </div>
+          {/* Garmin — import biegów przez Personal API */}
+          <GarminCard />
 
           {/* Push notifications */}
           <div className="flex items-center justify-between">
